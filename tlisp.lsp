@@ -1,0 +1,5 @@
+(DEFINE '((DEF (LAMBDA (FN PL FORM)
+		(DEFINE (LIST (LIST FN
+				(LIST LAMBDA PL FORM)
+		)))
+	))))
