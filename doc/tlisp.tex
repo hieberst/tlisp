@@ -1,0 +1,70 @@
+\documentclass[11pt,a4paper,titlepage]{article}
+\usepackage{german}
+\usepackage{a4}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt plus 2pt minus 1pt}
+
+\addtolength\topmargin{-27pt}
+\addtolength\textheight{68pt}
+
+\title{TinyLISP Version 1.0}
+\author{Steffen Hieber}
+\date{November 1992 -- \today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Vorwort}
+Ich habe die erste Version von TLISP 1987 auf einem Commodore C128 entwickelt. 
+Das Betriebssystem war CP/M 3.0, die Forth-Version F83.
+
+Mein damaliges Ziel, LISP zu erlernen, wurde mangels eines LISP-Interpreters
+ein wenig erschwert, daher kam ich auf die Idee, mir einfach einen eigenen
+LISP-Interpreter zu basteln. So entstand TLISP.
+
+Da ich damals bei der Bundeswehr war, konnte ich nur an den Wochenenden ein
+paar Stunden mit der Programmierung von TLISP verbringen.
+
+Unmittelbar nach der Bundeswehr bin ich nach Erlangen gezogen, um an der
+Friedrich-Alexander-Universit"at Erlangen-N"urnberg Informatik zu studieren.
+Ich wei"s nicht, welcher Teufel mich geritten hat, aber kurz nach dem Umzug
+nach Erlangen habe ich meinen Commodore C128 und alle CP/M-Disketten in die
+M"ulltonne geworfen. Das war das Ende von TLISP.
+
+In den n"achsten Jahren spukte mir immer wieder der Gedanke im Kopf herum,
+TLISP neu zu programmieren, was ich dann auch des "ofteren ansatzweise
+versucht habe. Ich war im Besitz einer DOS-Version von F83 und hatte auch
+noch den generellen Aufbau der damaligen TLISP-Version im Kopf. 
+
+Irgendwie habe ich aber nie die n"otige Motivation dazu aufbringen k"onnen,
+die Neuentwicklung von TLISP wirklich durchzuf"uhren.
+
+Ich habe bereits mit dem Gedanken gespielt, TLISP in C oder C++ zu 
+programmieren, aber zumindest die Wiedergeburt von TLISP sollte in Forth
+geschehen...
+
+Jetzt ist es an der Zeit, TLISP unter Linux mit GNU Forth Version 0.3.0
+neu zu entwickeln, wobei die Kompatibilit"at zu F83 gew"ahrleistet bleiben
+soll.
+
+\section{Einleitung}
+TLISP ist ein einfacher, vollst"andig in Forth 83 geschriebener Interpreter
+der Sprache LISP, wie ihn Prof.~Dr.~Dieter~M"uller~\cite{mu} beschreibt.
+
+Dieses Skript ist kein Lehrbuch zu LISP oder Forth, die Lekt"ure von \cite{mu}
+und \cite{ze} wird vorausgesetzt. 
+
+\newpage
+\begin{thebibliography}{9}
+\bibitem{mu}
+D.~M"uller: {\it LISP -- Eine elementare Einf"uhrung in die Programmierung
+nicht\-numerischer Aufgaben}, BI-Hochschultaschenb"ucher Bd.~628 (1985)
+\bibitem{ze}
+R.~Zech: {\it Forth 83 -- Eine gr"undliche Einf"uhrung in die Forth-Version --
+auch f"ur PC's}, Franzis'-Verlag M"unchen (1987)
+\end{thebibliography}
+
+\end{document}
