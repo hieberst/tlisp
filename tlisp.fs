@@ -4,7 +4,7 @@
 \
 \        Written (w) 1993-2000 by Steffen Hieber
 \
-\        RCS $Id: tlisp.fs,v 1.4 2000-04-02 11:06:19 steffen Exp $
+\        RCS $Id: tlisp.fs,v 1.5 2003-10-12 16:44:23 steffen Exp $
 \
 \
 \ 07.03.1993 TFLOAD aus dem Buch "Forth 83" von Zech uebernommen. Definition
@@ -52,17 +52,21 @@ tlisp DEFINITIONS       \ alle neuen Woerter ab jetzt in das Vokabular TLISP
 
 : hello ( -- )          \ Begruessung des Anwenders
 \ =====
-    CR ." TLISP Version 1.0 ref 2000-04-02"
-    CR ." Copyright (C) 1993-2000 Steffen Hieber"
+    CR ." TLISP Version 1.0 ref 2002-09-12"
+    CR ." Copyright (C) 1993-2002 Steffen Hieber"
 ;
 
 
-2048 CONSTANT maxobj    \ Groesse des Objekt-Speichers OBJMEM in Zeichen
-4096 CONSTANT maxlst    \ Anzahl der vorhandenen Zellenpaare in LSTMEM
+4096 CONSTANT num_nodes   \ Anzahl der vorhandenen Zellenpaare in LSTMEM
+2048 CONSTANT num_chars   \ Groesse des Objekt-Speichers OBJMEM in Zeichen
 
 
-CREATE objmem maxobj 1 chars * ALLOT   \ Objekt-Speicher erzeugen
-CREATE lstmem maxlst 2 cells * ALLOT   \ Listen-Speicher erzeugen
+2 CELLS CONSTANT sizeof_node    \ Groesse eines Knotens
+1 CHARS CONSTANT sizeof_char    \ Groesse eines Zeichens
+
+
+CREATE lstmem num_nodes sizeof_node * ALLOT   \ Listen-Speicher erzeugen
+CREATE objmem num_chars sizeof_char * ALLOT   \ Objekt-Speicher erzeugen
 
 
 VARIABLE freelist               \ Zeiger auf das erste freie Zellenpaar
@@ -72,27 +76,33 @@ VARIABLE freelist               \ Zeiger auf das erste freie Zellenpaar
 
 
 : (rplaca) ( list newhead -- list ) OVER lstmem +        ! ;
-: (rplacd) ( list newtail -- list ) OVER lstmem + cell + ! ;
+: (rplacd) ( list newtail -- list ) OVER lstmem + CELL + ! ;
+
 
 : (car) ( list -- head ) lstmem +        @ ;
-: (cdr) ( list -- tail ) lstmem + cell + @ ;
+: (cdr) ( list -- tail ) lstmem + CELL + @ ;
 
 
 : init ( -- )         \ Listen-Speicher initialisieren
 \ ====
-    maxlst 2 cells * 0 DO
-        I nil (rplaca) I 2 cells + (rplacd) DROP
-    2 cells +LOOP
-    maxlst 1- 2 cells * nil (rplacd) DROP
+    num_nodes sizeof_node * 0 DO
+        I nil (rplaca) I sizeof_node + (rplacd) DROP
+    sizeof_node +LOOP
+    num_nodes 1- sizeof_node * nil (rplacd) DROP
     0 freelist !
 ; init
+
+
+1 CONSTANT enomem       \ out of memory
+2 CONSTANT einval       \ invalid argument
 
 
 : error ( n -- )      \ Fehlerbehandlung !!!
 \ =====
     CR ." ERROR! "
-    CASE  1 OF ." Out of memory."      ENDOF
-               ." CASE fell through."
+    CASE enomem OF ." Out of memory."      ENDOF
+         einval OF ." Invalid argument."   ENDOF
+                   ." CASE fell through."
     ENDCASE
 ;
 
@@ -101,7 +111,7 @@ VARIABLE freelist               \ Zeiger auf das erste freie Zellenpaar
 \ ===
     freelist @
     DUP (cdr) DUP
-    nil = IF 1 error ELSE freelist ! THEN
+    nil = IF DROP enomem error ELSE freelist ! THEN
 ;
 
 
@@ -110,3 +120,33 @@ VARIABLE freelist               \ Zeiger auf das erste freie Zellenpaar
     new SWAP (rplacd)
         SWAP (rplaca)
 ;
+
+
+: atom? ( sexpr -- flag )    \ liefert TRUE, wenn Atomknoten, sonst FALSE
+\ =====
+    (car) objmem >=
+;
+
+
+: number? ( sexpr -- flag )	\ liefert TRUE, wenn Zahl, sonst FALSE
+\ =======
+    dup atom? IF ELSE DROP false THEN
+;
+
+
+: car ( sexpr -- sexpr )
+\ ===
+    dup atom? IF DROP einval error ELSE (car) THEN
+;
+
+
+: new_atom ( c-addr u -- atom)
+\ ========
+    type
+;
+
+
+s" NIL" new_atom
+
+
+hello

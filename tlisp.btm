@@ -1,0 +1,27 @@
+rem ÉÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ»
+rem º  Datei ...........: TLISP.BTM                                   º
+rem º  Version .........: 1.0 ref 19931213                            º
+rem ÇÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¶
+rem º  Autor ...........: Steffen Hieber                              º
+rem º  Datum ...........: 9. M„rz 1993                                º
+rem ÈÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼
+
+echo.
+echo Loading TLISP ...
+
+setlocal
+
+loadbtm off ^ c:\tools\4dos\kstack > nul: ^ loadbtm on
+
+cdd c:\f83                           ^ rem Laufwerk C: --> Programm
+cd  e:\user\steffen\projekte\tlisp   ^ rem Laufwerk E: --> Daten
+
+set cmd=      "open e:tfload.blk" Enter "3 load" Enter
+set cmd=%cmd% "open e:eaker.f83"  Enter "tfload" Enter
+set cmd=%cmd% "open e:tlisp.f83"  Enter "tfload" Enter
+
+keystack %cmd
+
+f83
+
+endlocal

@@ -1,0 +1,1 @@
+@%ProgramFiles%\gforth\gforth.exe tlisp.fs
