@@ -1,0 +1,28 @@
+\ อออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออฏ
+\   Datei ...........: EAKER.F83                                   
+\   Version .........: 1.0                                         
+\ €
+\   Autor ...........: Steffen Hieber                              
+\   Datum ...........: 10. Maerz 1993                              
+\ ศอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออฆ
+
+
+\ 10.03.93   Eaker-Case aus dem Buch "Forth 83" von Zech, Seite 318,
+\            uebernommen.
+
+
+: case    CSP @ 0815 !CSP ; IMMEDIATE
+
+: of      COMPILE OVER COMPILE = [COMPILE] IF COMPILE DROP ; IMMEDIATE
+
+: endof   [COMPILE] ELSE ; IMMEDIATE
+
+: endcase COMPILE DROP
+          BEGIN SP@ CSP @ - WHILE [COMPILE] THEN REPEAT
+          0815 - ABORT" Error! Wrong Eaker-Case."
+          CSP !
+; IMMEDIATE
+
+
+ENDPGM
+
