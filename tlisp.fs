@@ -4,7 +4,7 @@
 \
 \        Written (w) 1993-1997 by Steffen Hieber
 \
-\        RCS: $Id: tlisp.fs,v 1.2 1997-10-16 00:32:46 steffen Exp $
+\        RCS $Id: tlisp.fs,v 1.3 1997-10-16 00:38:29 steffen Exp $
 \
 \
 \ 07.03.1993 TFLOAD aus dem Buch "Forth 83" von Zech uebernommen. Definition
@@ -36,6 +36,8 @@
 \            kann - entfernt. Umstellung der Adreﬂarithmetik auf die Worte
 \            CELL, CELLS und CHARS. Erzeugung des Shell-Skripts TLISP zum
 \            Start von GForth und TLISP.
+\
+\ 16.10.1997 Kontrolle der Programmentwicklung durch das RCS gestartet. 
 
 
 FORTH DEFINITIONS       \ Grund-Vokabular erweitern ...
