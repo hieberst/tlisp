@@ -4,6 +4,7 @@
 \
 \        Written (w) 1993-1997 by Steffen Hieber
 \
+\        RCS: $Id: tlisp.fs,v 1.2 1997-10-16 00:32:46 steffen Exp $
 \
 \
 \ 07.03.1993 TFLOAD aus dem Buch "Forth 83" von Zech uebernommen. Definition
