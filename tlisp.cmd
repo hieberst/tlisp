@@ -1,4 +1,4 @@
 @echo off
-%ProgramFiles%\gforth\gforth.exe tlisp.fs
+"%ProgramFiles%\gforth\gforth.exe" tlisp.fs
 pause
 
