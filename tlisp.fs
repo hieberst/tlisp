@@ -4,7 +4,7 @@
 \
 \        Written (w) 1987-2008 by Steffen Hieber
 \
-\        RCS $Id: tlisp.fs,v 1.7 2010-11-19 08:37:01 steffen Exp $
+\        RCS $Id: tlisp.fs,v 1.8 2010-11-19 14:48:14 steffen Exp $
 \
 \
 \ 07.03.1993 TFLOAD aus dem Buch "Forth 83" von Zech uebernommen. Definition
@@ -66,11 +66,7 @@ CREATE mem_char num_chars sizeof_char * ALLOT   \ Objekt-Speicher erzeugen
 
 
 VARIABLE freelist               \ Zeiger auf das erste freie Zellenpaar
-VARIABLE oblist                 \ Objektliste
 VARIABLE len_char               \ Aktuelle Grösse des Objektspeichers
-
-VARIABLE apval
-VARIABLE subr
 
 0 CONSTANT nil                  \ "not in list"
 
@@ -107,14 +103,6 @@ VARIABLE subr
 ;
 
 
-: new ( -- sexpr )     \ der FREELIST ein Zellenpaar entnehmen
-\ ===
-    freelist @
-    DUP (cdr) DUP
-    null IF DROP enomem_node error ELSE freelist ! THEN
-;
-
-
 : init ( -- )         \ Listen-Speicher initialisieren
 \ ====
     num_nodes sizeof_node * 0 DO
@@ -124,6 +112,14 @@ VARIABLE subr
     0 freelist !
     0 len_char !
 ; init
+
+
+: new ( -- sexpr )     \ der FREELIST ein Zellenpaar entnehmen
+\ ===
+    freelist @
+    DUP (cdr) DUP
+    null IF DROP enomem_node error ELSE freelist ! THEN
+;
 
 
 : cons ( sexpr1 sexpr2 -- sexpr )
@@ -187,8 +183,8 @@ VARIABLE subr
 ;
 
 
-: object ( c-addr u -- atom)
-\ ======
+: (object) ( c-addr u -- atom)
+\ ========
     len_char @ DUP mem_char +       \ Naechste freie Speicheradresse ermitteln
     ROT ROT OVER + 1+               \ Neue Groesse des Objektspeichers ermitteln
     DUP num_chars u> IF
@@ -201,31 +197,9 @@ VARIABLE subr
 ;
 
 
-: copy ( sexpr -- sexpr ) recursive
-\ ====
-    DUP list? IF
-        DUP car copy SWAP cdr copy cons
-    THEN
-;
-
-
-: assoc ( atom sexpr -- sexpr )
-\ =====
-    BEGIN
-        DUP atom? IF TRUE ELSE DUP (car) atom? THEN IF
-            DROP nil FALSE
-        ELSE
-            2DUP (car) (car) = IF (car) FALSE ELSE TRUE THEN
-        THEN
-    WHILE
-        (cdr)
-    REPEAT
-    NIP
-;
-
-
-: bind ( -- )
-\ ====
+: object ( -- atom )
+\ ======
+  bl word count (object)
 ;
 
 
@@ -257,16 +231,102 @@ VARIABLE subr
 
 : putprop ( atom value property -- value )
 \ =======
-    COPY SWAP COPY DUP
-    2SWAP OVER atom? IF
-        2DUP nil prop
-        DUP null IF DROP
-            SWAP DUP cdr -ROT 2SWAP cons ROT SWAP cons (rplacd) DROP
-        ELSE
-            NIP NIP SWAP (rplaca) DROP
-        THEN
+    ROT SWAP
+    2DUP nil prop
+    DUP null IF
+        DROP OVER CDR 3 PICK swap cons cons (rplacd) drop
     ELSE
-        2DROP DROP einval_atom error
+        NIP NIP OVER (rplaca) DROP
+    THEN
+;
+
+
+: assoc ( atom sexpr -- sexpr )
+\ =====
+    BEGIN
+        DUP atom? IF TRUE ELSE DUP (car) atom? THEN IF
+            DROP nil FALSE
+        ELSE
+            2DUP (car) (car) = IF (car) FALSE ELSE TRUE THEN
+        THEN
+    WHILE
+        (cdr)
+    REPEAT
+    NIP
+;
+
+
+: bind ( -- )
+\ ====
+;
+
+
+object NIL    DROP
+object OBLIST constant oblist   \ Objektliste
+object APVAL  constant apval
+
+
+\ NIL, APVAL und OBLIST in Objektliste eintragen
+oblist nil apval oblist nil cons cons cons apval putprop drop
+
+
+: new_object ( --  atom )
+\ ==========
+    object dup
+    oblist apval get dup cdr 2 roll swap cons rplacd drop
+;
+
+
+new_object SUBR constant subr
+
+
+: new_subr ( addr arity -- atom )
+\ ========
+    new_object -rot cons subr putprop
+;
+
+
+\ @CODE
+' cons    2 new_subr CONS    drop
+' car     1 new_subr CAR     drop
+' cdr     1 new_subr CDR     drop
+' rplaca  2 new_subr RPLACA  drop
+' rplacd  2 new_subr RPLACD  drop
+' prop    3 new_subr PROP    drop
+' get     2 new_subr GET     drop
+' putprop 3 new_subr PUTPROP drop
+' assoc   2 new_subr ASSOC   drop
+
+
+: strequal ( addr1 addr2 -- f )
+    count rot count compare 0 =
+;
+
+
+: find ( -- atom )
+    bl word
+    oblist apval get
+    BEGIN
+        DUP list? IF
+            DUP CAR (car) 2 PICK STREQUAL IF
+                CAR FALSE
+            ELSE
+                TRUE
+            THEN
+        ELSE
+            NIL
+        THEN
+    WHILE
+        CDR
+    REPEAT
+    NIP
+;
+
+
+: copy ( sexpr -- sexpr ) recursive
+\ ====
+    DUP list? IF
+        DUP car copy SWAP cdr copy cons
     THEN
 ;
 
@@ -378,17 +438,6 @@ VARIABLE subr
 ;
 
 
-S" NIL"    object DROP
-S" OBLIST" object oblist !
-S" APVAL"  object apval !
-
-apval @ DUP oblist @ nil cons cons nil SWAP cons SWAP
-oblist @ ROT ROT putprop DROP
-
-S" SUBR"  object subr !
-S" ASSOC" object ' assoc nil cons subr @ putprop drop
-
-
 hello
 
 
@@ -396,15 +445,15 @@ hello
 
 
 \ display a dotted pair (a . b)
-S" a" object
-S" b" object
+new_object a
+new_object b
 cons
 print drop
 
 \ display a simple list (d e f)
-S" d" object
-S" e" object
-S" f" object
+new_object d
+new_object e
+new_object f
 nil
 cons
 cons
@@ -412,38 +461,39 @@ cons
 print drop
 
 \ display a more complex list (g (h . i))
-s" g" object
-s" h" object
-s" i" object
+new_object g
+new_object h
+new_object i
 cons
 cons
 print drop
 
 \ display an association list ((p1 . v1) (p2 . v2) (p3 . v3))
-s" p1" object dup constant p1
-s" v1" object dup constant v1
+new_object ali
+new_object p1
+new_object v1
 cons
-s" p2" object dup constant p2
-s" v2" object dup constant v2
+new_object p2
+new_object v2
 cons
-s" p3" object dup constant p3
-s" v3" object dup constant v3
+new_object p3
+new_object v3
 cons
 nil
 cons
 cons
 cons
-print constant ali
-s" v4" object constant v4
+apval putprop print drop
 
 \ display a property list (p1 v1 p2 v2 p3 v3)
-s" pli" object dup constant pli
-p1 v1 p2 v2 p3 v3 nil cons cons cons cons cons cons
-(rplacd) cdr print drop
+new_object pli
+dup find v3 find p3 putprop drop
+dup find v2 find p2 putprop drop
+dup find v1 find p1 putprop drop
+dup (cdr) print drop
+dup find p2 get print drop drop
 
-s" x" object constant x
-
-oblist @ cdr terpri print drop
+oblist cdr terpri print drop
 
 terpri
 terpri
