@@ -1,0 +1,4 @@
+(DEFUN FACTORIAL (N)
+    (COND ((ZEROP N) 1) 
+          (T (TIMES N (FACTORIAL (DIFFERENCE N 1))))
+))

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.1 2004-10-12 20:49:51 steffen Exp $
+# $Id: Makefile,v 1.2 2010-11-19 08:37:01 steffen Exp $
 
 tlisp.pdf: tlisp.tex tlisp.bib
 	pdflatex tlisp
@@ -26,4 +26,5 @@ clean:
 	-$(RM) *.lo?
 	-$(RM) *.out
 	-$(RM) *.toc
+	-$(RM) *.*~
 	-$(RM) tlisp.pdf

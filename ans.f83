@@ -1,0 +1,15 @@
+FORTH DEFINITIONS
+
+\ VOCABULARY ans
+\ ans DEFINITIONS
+
+: chars 1 * ;
+
+2 CONSTANT cell
+: cells cell * ;
+
+: invert not ;
+
+\ S"
+
+ENDPGM
