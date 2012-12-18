@@ -1,3 +1,5 @@
+@echo off
+
 rem ษอออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออป
 rem บ  Datei ...........: TLISP.BTM                                   บ
 rem บ  Version .........: 1.0 ref 19931213                            บ
@@ -11,17 +13,19 @@ echo Loading TLISP ...
 
 setlocal
 
-loadbtm off ^ c:\tools\4dos\kstack > nul: ^ loadbtm on
+cdd c:\forth\f83                     & rem Laufwerk C: --> Programm
+cdd %@path[%@full[%0]]               & rem Laufwerk D: --> Daten
 
-cdd c:\f83                           ^ rem Laufwerk C: --> Programm
-cd  e:\user\steffen\projekte\tlisp   ^ rem Laufwerk E: --> Daten
+rem open funktioniert nur ohne Schreibschutz
+attrib /q -r tfload.blk eaker.f83 ans.f83 tlisp.fs
 
-set cmd=      "open e:tfload.blk" Enter "3 load" Enter
-set cmd=%cmd% "open e:eaker.f83"  Enter "tfload" Enter
-set cmd=%cmd% "open e:tlisp.f83"  Enter "tfload" Enter
+set cmd=      "open tfload.blk" Enter "2 load" Enter
+set cmd=%cmd% "open eaker.f83"  Enter "tfload" Enter
+set cmd=%cmd% "open ans.f83"    Enter "tfload" Enter
+set cmd=%cmd% "open tlisp.fs"   Enter "tfload" Enter /W90
 
 keystack %cmd
 
-f83
+c:f83
 
 endlocal
