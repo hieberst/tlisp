@@ -1,15 +1,120 @@
+ONLY FORTH DOS ALSO
 FORTH DEFINITIONS
 
-\ VOCABULARY ans
-\ ans DEFINITIONS
+: CHARS NOOP ; IMMEDIATE
+: CHAR+ 1+ ;
 
-: chars 1 * ;
+2 CONSTANT CELL
+: CELL+ CELL + ;
+: CELLS CELL * ;
 
-2 CONSTANT cell
-: cells cell * ;
+: INVERT NOT ;
 
-: invert not ;
+: S" [COMPILE] " ; IMMEDIATE
 
-\ S"
+: ACCEPT EXPECT SPAN @ ;
+
+: 2LITERAL [COMPILE] DLITERAL ; IMMEDIATE
+
+: [CHAR] [COMPILE] ASCII ; IMMEDIATE
+
+: D>S DROP ;
+
+0 CONSTANT R/O
+
+
+: COMPARE (S c-addr1 u1 c-addr2 u2 --> n )
+\ =======
+    ROT OVER = IF
+        COMP
+    ELSE
+        2DROP DROP -1      \ to be improved
+    THEN
+;
+
+
+: >NUMBER (S ud1 c-addr1 u1 --> ud2 c-addr2 u2 )
+\ =======
+    2DUP + DUP >R DUP C@ >R BL SWAP C!
+    TUCK >R 1- DUP >R DUP C@ >R
+    TUCK C!
+    CONVERT
+    R> R@ C! R> CHAR+ TUCK - R> -
+    R> R> C!
+;
+
+
+\ Seiteneffekt: der Dateiname wird in Grossbuchstaben umgewandelt
+\
+\ Adresse / Offset       | Groesse | Datentyp
+\ -----------------------+---------+--------------
+\ fileid                 | B/FCB   | FCB
+\ fileid + B/FCB         | B/REC   | Record
+\ fileid + B/FCB + B/REC | BYTE    | Record Offset
+
+: OPEN-FILE (S c-addr u fam --> fileid ior )
+\ =========
+    DROP
+    2DUP SWAP 1- DUP >R DUP C@ >R TUCK C!
+    ?UPPERCASE FIND IF
+        EXECUTE
+        NIP NIP
+    ELSE
+        ( c-addr u c-addr0 )
+        "CREATE HERE B/FCB B/REC + 1+ DUP ALLOT
+        ( c-addr u fileid size )
+        OVER SWAP ERASE
+        DUP 1+ 11 BLANK
+        ( c-addr u fileid )
+        \ Dateierweiterung (Punkt) suchen
+        -ROT 2DUP 0 SWAP 0 ?DO
+            DROP I 1+ OVER I + C@ ASCII . = ?LEAVE
+        LOOP
+        ( fcb c-addr u c-addr ldot )
+        NIP TUCK -
+        ( fcb c-addr ldot rdot )
+        \ Dateierweiterung nach FCB+9 kopieren
+        ?DUP IF
+            2 PICK 2 PICK + 4 PICK 9 + ROT CMOVE    \ Erweiterung kopieren
+        THEN
+        \ Dateiname ohne Punkt nach FCB+1 kopieren
+        2DUP + 1- C@ ASCII . = IF 1- THEN           \ Punkt auslassen
+        2 PICK 1+ SWAP CMOVE                        \ Name kopieren
+    THEN
+    0 OVER 12 + C!                                  \ reset FCB extent (ex)
+    B/REC OVER B/FCB + B/REC + C!                   \ reset record offset
+    DUP 15 BDOS                                     \ OPEN FILE
+    R> R> C!
+;
+
+
+: READ-LINE (S c-addr u1 fileid --> u2 flag ior )
+\ =========
+    0 ROT 0 DO
+        ( c-addr fileid u2 )
+        OVER B/FCB + B/REC + C@ B/REC = IF
+            OVER B/FCB + SET-DMA                    \ SET DMA ADDRESS
+            OVER 20 BDOS                            \ READ SEQUENTIAL
+            0= IF 0 2 PICK B/FCB + B/REC + C! THEN  \ Record Offset := 0
+        THEN
+        OVER B/FCB B/REC + 1+ DUMP
+        DROP I LEAVE
+    LOOP
+
+    NIP NIP
+    FALSE -1
+;
+
+
+: CLOSE-FILE (S fileid --> ior )
+\ ==========
+    16 BDOS                                         \ CLOSE FILE
+;
+
+
+: THROW (S n --> )
+\ =====
+    DROP
+;
 
 ENDPGM
