@@ -1,0 +1,13 @@
+       TEST  TESTS
+       
+atom (t)
+atom (nil)
+cdr (t)
+cdr (nil)
+member (b (a b c))
+cset (a b)
+eval (a nil)
+eval (oblist nil)
+
+STOP)))   )))   )))   )))
+       FIN      END OF LISP RUN

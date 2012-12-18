@@ -1,0 +1,6 @@
+; submit tlisp
+
+r ..\..\tfload.blk l
+r ..\..\eaker.f83  l
+r ..\..\ans.f83    l
+r ..\..\tlisp.fs   l
