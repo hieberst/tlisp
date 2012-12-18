@@ -1,18 +1,23 @@
-% $Id: tlisp.tex,v 1.3 2004-10-12 20:51:04 steffen Exp $
+% $Id: tlisp.tex,v 1.4 2012-12-18 21:04:43 steffen Exp $
+%
+% !TeX encoding = latin9
+% !TeX program = pdfLaTeX+MakeIndex+BibTeX
 
 \documentclass[11pt,a4paper,titlepage]{article}
 
-\usepackage{a4}
 \usepackage[german]{babel}
 \usepackage{bibgerm}
-\usepackage[latin1]{inputenc}
+\usepackage[latin9]{inputenc}
 \usepackage{makeidx}
 	\makeindex
 \usepackage{nomencl}
 	\makeglossary
 \usepackage{graphicx}
 \usepackage[colorlinks=true,urlcolor=blue]{hyperref}
-	
+\usepackage{tikz}
+
+\usetikzlibrary{shapes,arrows}
+
 \pdfinfo
 {
     /Title	(TLISP)
@@ -43,7 +48,7 @@
 \newpage
 
 \section{Vorwort}
-Ich habe die erste Version von TLISP 1987 auf einem Commodore C128 entwickelt. 
+Ich habe die erste Version von TLISP 1987 auf einem Commodore C128 entwickelt.
 Das Betriebssystem war CP/M 3.0, die Forth-Version F83.
 
 Mein damaliges Ziel, LISP zu erlernen, wurde mangels eines LISP-Interpreters
@@ -62,12 +67,12 @@ M"ulltonne geworfen. Das war das Ende von TLISP.
 In den n"achsten Jahren spukte mir immer wieder der Gedanke im Kopf herum,
 TLISP neu zu programmieren, was ich dann auch des "ofteren ansatzweise
 versucht habe. Ich war im Besitz einer DOS-Version von F83 und hatte auch
-noch den generellen Aufbau der damaligen TLISP-Version im Kopf. 
+noch den generellen Aufbau der damaligen TLISP-Version im Kopf.
 
 Irgendwie habe ich aber nie die n"otige Motivation dazu aufbringen k"onnen,
 die Neuentwicklung von TLISP wirklich durchzuf"uhren.
 
-Ich habe bereits mit dem Gedanken gespielt, TLISP in C oder C++ zu 
+Ich habe bereits mit dem Gedanken gespielt, TLISP in C oder C++ zu
 programmieren, aber zumindest die Wiedergeburt von TLISP sollte in Forth
 geschehen...
 
@@ -80,7 +85,38 @@ TLISP ist ein einfacher, vollst"andig in Forth 83 geschriebener Interpreter
 der Sprache LISP, wie ihn Prof.~Dr.~Dieter~M"uller~\cite{mu} beschreibt.
 
 Dieses Skript ist kein Lehrbuch zu LISP oder Forth, die Lekt"ure von \cite{mu}
-und \cite{ze} wird vorausgesetzt. 
+und \cite{ze} wird vorausgesetzt.
+
+\section{Objektspeicher}
+
+\section{Internes}
+\subsection{PRIN}
+\tikzstyle{fc_terminal} = [draw, rounded rectangle,node distance=3cm, minimum width=3cm,minimum height=2em]
+\tikzstyle{fc_data} = [draw, trapezium, inner xsep=0pt,trapezium left angle=70, trapezium right angle=110, node distance=3cm,minimum height=4em]
+\tikzstyle{fc_branch} = [draw, diamond, shape aspect=2, text width=4.5em, node distance=3cm, inner sep=0pt]
+\tikzstyle{fc_operational} = [draw, rectangle, minimum height=4em]
+\tikzstyle{line} = [draw, -triangle 45]
+\begin{tikzpicture}[node distance = 2cm, auto, align=center]
+    \node [fc_terminal] (start) {Start};
+    \node [fc_branch, below of=start] (is_atom) {atom?};
+    \node [fc_operational, right of=is_atom, node distance=9cm] (print_atom) {Atom ausgeben \\ PRIN1};
+    \node [fc_data, below of=is_atom] (print_car) {Ausgabe \\ "`("' und "`car"'};
+    \node [fc_operational, below of=print_car, node distance=3cm] (next) {Berechnung \\ cdr(last())};
+    \node [fc_branch, below of=next] (is_nil) {nil?};
+    \node [fc_data, right of=is_nil, node distance=5cm] (print_dot) {Ausgabe "`."' \\};
+    \node [fc_data, below of=print_dot] (print_cdr) {Ausgabe \\ "`cdr"' und "`)"'};
+    \node [fc_terminal, below of=print_cdr] (end) {Ende};
+    \path [line] (start) -- (is_atom);
+    \path [line] (is_atom) -- node [near start]{Ja}  (print_atom);
+    \path [line] (is_atom) -- node [near start]{Nein}(print_car);
+    \path [line] (print_car) -- (next);
+    \path [line] (next) -- (is_nil);
+    \path [line] (is_nil) -- node [near start]{Nein}  (print_dot);
+    \path [line] (is_nil) |- node [near start]{Ja}    (print_cdr);
+    \path [line] (print_dot) -- (print_cdr);
+    \path [line] (print_atom) |- (end);
+    \path [line] (print_cdr) -- (end);
+\end{tikzpicture}
 
 % Stichwortverzeichnis
 \newpage
