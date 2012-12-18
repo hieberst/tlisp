@@ -1,4 +1,4 @@
 @echo off
-if not exist VCINSTALLDIR set VCINSTALLDIR=D:\Program Files\Microsoft Visual Studio\VC98
+if not defined VCINSTALLDIR set VCINSTALLDIR=%ProgramFiles%\Microsoft Visual Studio 9.0\VC
 call "%VCINSTALLDIR%\bin\vcvars32.bat"
 nmake clean RM=del
