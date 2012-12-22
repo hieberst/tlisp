@@ -16,8 +16,8 @@ setlocal
 cdd c:\forth\f83                     & rem Laufwerk C: --> Programm
 cdd %@path[%@full[%0]]               & rem Laufwerk D: --> Daten
 
-rem open funktioniert nur ohne Schreibschutz
-attrib /q -r tfload.blk eaker.f83 ans.f83 tlisp.fs
+rem OPEN (BDOS 15) funktioniert unter DOS nur ohne Schreibschutz
+attrib /q -r *.blk *.f83 *.lsp tlisp.fs
 
 set cmd=      "open tfload.blk" Enter "2 load" Enter
 set cmd=%cmd% "open eaker.f83"  Enter "tfload" Enter
