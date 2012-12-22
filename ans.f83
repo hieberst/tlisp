@@ -45,12 +45,13 @@ FORTH DEFINITIONS
 
 
 \ Seiteneffekt: der Dateiname wird in Grossbuchstaben umgewandelt
+\               (das fuehrt zu doppelten Strings)
 \
 \ Adresse / Offset       | Groesse | Datentyp
-\ -----------------------+---------+--------------
+\ -----------------------+---------+-----------
 \ fileid                 | B/FCB   | FCB
-\ fileid + B/FCB         | B/REC   | Record
-\ fileid + B/FCB + B/REC | BYTE    | Record Offset
+\ fileid + B/FCB         | B/REC   | DTA
+\ fileid + B/FCB + B/REC | WORD    | DTA Offset
 
 : OPEN-FILE (S c-addr u fam --> fileid ior )
 \ =========
@@ -61,10 +62,10 @@ FORTH DEFINITIONS
         NIP NIP
     ELSE
         ( c-addr u c-addr0 )
-        "CREATE HERE B/FCB B/REC + 1+ DUP ALLOT
+        "CREATE HERE [ B/FCB B/REC + CELL+ ] LITERAL DUP ALLOT
         ( c-addr u fileid size )
         OVER SWAP ERASE
-        DUP 1+ 11 BLANK
+        DUP CHAR+ 11 CHARS BLANK
         ( c-addr u fileid )
         \ Dateierweiterung (Punkt) suchen
         -ROT 2DUP 0 SWAP 0 ?DO
@@ -74,35 +75,53 @@ FORTH DEFINITIONS
         NIP TUCK -
         ( fcb c-addr ldot rdot )
         \ Dateierweiterung nach FCB+9 kopieren
-        ?DUP IF
-            2 PICK 2 PICK + 4 PICK 9 + ROT CMOVE    \ Erweiterung kopieren
+        ?DUP IF                                     \ Erweiterung t1..t3
+            2 PICK 2 PICK + 4 PICK 9 + ROT CMOVE    \   kopieren
         THEN
         \ Dateiname ohne Punkt nach FCB+1 kopieren
         2DUP + 1- C@ ASCII . = IF 1- THEN           \ Punkt auslassen
-        2 PICK 1+ SWAP CMOVE                        \ Name kopieren
+        2 PICK 1+ SWAP CMOVE                        \ Name f1..f8 kopieren
     THEN
     0 OVER 12 + C!                                  \ reset FCB extent (ex)
-    B/REC OVER B/FCB + B/REC + C!                   \ reset record offset
-    DUP 15 BDOS                                     \ OPEN FILE
-    R> R> C!
+    0 OVER 32 + C!                                  \ reset FCB record (cr)
+    B/REC OVER [ B/FCB B/REC + ] LITERAL + !        \ reset DTA offset
+    DUP 15 BDOS 255 <> IF 0 ELSE 1 THEN             \ OPEN FILE
+    R> R> C!                                        \ restore count byte
 ;
 
 
 : READ-LINE (S c-addr u1 fileid --> u2 flag ior )
 \ =========
-    0 ROT 0 DO
+    0 ROT 0 ?DO
         ( c-addr fileid u2 )
-        OVER B/FCB + B/REC + C@ B/REC = IF
+        OVER [ B/FCB B/REC + ] LITERAL + @ B/REC = IF
             OVER B/FCB + SET-DMA                    \ SET DMA ADDRESS
             OVER 20 BDOS                            \ READ SEQUENTIAL
-            0= IF 0 2 PICK B/FCB + B/REC + C! THEN  \ Record Offset := 0
+            255 <> IF
+                0 2 PICK [ B/FCB B/REC + ] LITERAL + !  \ DTA Offset := 0
+            THEN
+\           OVER [ B/FCB B/REC + CELL+ ] LITERAL DUMP
         THEN
-        OVER B/FCB B/REC + 1+ DUMP
-        DROP I LEAVE
+        ( c-addr fileid u2 )
+        OVER [ B/FCB B/REC + ] LITERAL + @ B/REC < IF
+            OVER [ B/FCB B/REC + ] LITERAL +
+            DUP @ DUP 1+ ROT !                      \ DTA Offset += 1
+            2 PICK B/FCB + + C@                     \ naechstes Zeichen
+            ( c-addr fileid u2 ch )
+            DUP 13 = OVER 10 = OR IF                \ Zeilenende
+                2DROP I LEAVE
+            ELSE DUP 26 = OVER 0= OR IF             \ Dateiende
+                2DROP -1 LEAVE
+            ELSE
+                3 PICK I + C!
+            THEN
+            THEN
+        ELSE
+            DROP -1 LEAVE
+        THEN
     LOOP
-
     NIP NIP
-    FALSE -1
+    DUP 0>= 0
 ;
 
 
