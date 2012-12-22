@@ -1,6 +1,19 @@
-; submit tlisp
-
-r ..\..\tfload.blk l
-r ..\..\eaker.f83  l
-r ..\..\ans.f83    l
-r ..\..\tlisp.fs   l
+; usage: submit tlisp
+;
+; change file attributes to r/w
+stat *.blk    $$r/w
+stat *.f83    $$r/w
+stat *.lsp    $$r/w
+stat tlisp.fs $$r/w
+;
+; copy files from host
+r ..\*.blk    l
+r ..\*.f83    l
+r ..\*.lsp    l
+r ..\tlisp.fs l
+;
+; change file attributes to r/o
+stat *.blk    $$r/o
+stat *.f83    $$r/o
+stat *.lsp    $$r/o
+stat tlisp.fs $$r/o
