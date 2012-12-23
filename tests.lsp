@@ -1,4 +1,4 @@
-; $Id: tests.lsp,v 1.1 2012-12-18 20:58:17 steffen Exp $
+; $Id: tests.lsp,v 1.2 2012-12-23 21:31:37 steffen Exp $
 
 (LOAD "sqr.lsp")
 
@@ -7,6 +7,8 @@
           (SETQ flag (EQUAL (EVAL sexpr) result))
           (PRIN sexpr)
           (PRIN2 " --> ")
+          (PRIN result)
+          (PRIN2 " : ")
           (PRINT flag)
     ))
 
@@ -21,6 +23,16 @@
 (CHECK '(SQR 3)                   9)
 (CHECK '(CADR '(A B C))           'B)
 (CHECK '(CADR '(A,B,C))           'B)
+
+; PROP
+(CSETQ A 3)
+(DEFUN FOO () (PRINT "FOO"))
+(CHECK '(PROP 'A  APVAL   NIL) '(3))
+(CHECK '(PROP 'A  APVAL  'FOO) '(3))
+(CHECK '(PROP 'A 'APVAL2  NIL) NIL)
+(CHECK '(PROP 'A 'APVAL2 'FOO) "FOO")
+(REMPROP 'FOO EXPR)
+(REMPROP 'A   APVAL)
 
 ; Fakultaet
 (CHECK '(LOAD "fac.lsp") T)
