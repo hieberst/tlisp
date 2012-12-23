@@ -1,4 +1,4 @@
-% $Id: tlisp.tex,v 1.4 2012-12-18 21:04:43 steffen Exp $
+% $Id: tlisp.tex,v 1.5 2012-12-23 21:55:14 steffen Exp $
 %
 % !TeX encoding = latin9
 % !TeX program = pdfLaTeX+MakeIndex+BibTeX
@@ -117,6 +117,38 @@ und \cite{ze} wird vorausgesetzt.
     \path [line] (print_atom) |- (end);
     \path [line] (print_cdr) -- (end);
 \end{tikzpicture}
+
+\section{Fragen}
+\begin{enumerate}
+\item Wie groß ist ein FCB? Warum hat B/FCB in F83 den Wert 42?
+\item Warum dürfen Dateien unter DOS bei der BDOS-Funktion 15 (OPEN FILE)
+      nicht schreibgeschützt sein?
+\item Warum hat das ursprüngliche TFLOAD von R.~Zech auf dem C128 funktioniert?
+\end{enumerate}
+
+\section{Offene Punkte}
+\begin{enumerate}
+\item Minimierung der Verwendung des Return-Stacks durch Vermeidung von
+      Rekursion und des Worts {\tt \textgreater R}; {\tt TESTS.LSP} muss
+      unter F83 funktionieren.
+      (Die aktuelle Ausnutzung nach Start liegt bei 61 Adressen, bei
+      TESTS.LSP sogar bei 201 Adressen, siehe FREE)
+\begin{verbatim}
+      Status:       RECURSE         >R
+                    -------         --
+                    append          exec
+                    (eval)          {mu/mod}
+                    gc-walk         prog
+                    pair            prog-go
+                    prin            prog-return
+                                    (read)
+                                    >NUMBER
+                                    OPEN-FILE
+\end{verbatim}
+
+\item Automatische GC bei LOAD
+\item Dokumentation
+\end{enumerate}
 
 % Stichwortverzeichnis
 \newpage
