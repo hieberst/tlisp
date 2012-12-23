@@ -1,10 +1,10 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.2 ref 2012-12-18
+\              Version 0.2 ref 2012-12-23
 \
 \        Written (w) 1987-2012 by Steffen Hieber
 \
-\        RCS $Id: tlisp.fs,v 1.9 2012-12-18 21:07:39 steffen Exp $
+\        RCS $Id: tlisp.fs,v 1.10 2012-12-23 21:34:40 steffen Exp $
 \
 \
 \ 07.03.1993 TFLOAD aus dem Buch "Forth 83" von Zech uebernommen. Definition
@@ -43,8 +43,17 @@
 \ 02.04.2000 Wiederaufnahme der Entwicklung.
 \
 
-\ Achtung: maximale Zeilenlaenge: PAD HERE -
-\          F83, F-PC: 80, Gforth: 104
+\ Achtung: maximale Zeilenlaenge: (PAD HERE -)
+\ --------      F83, F-PC:  80
+\               Gforth   : 104
+\
+\          Groesse des Return-Stacks:
+\               F83      : 100  (RP0@ TIB - CELL /)
+\               FPC      : 125
+\
+\          Groesse von TLISP:
+\               F83      : ' TFLOAD.BLK HERE SWAP - U.
+\               Gforth   : ' tlisp      HERE SWAP - U.
 
 \ Namenskonventionen:
 \ -------------------
@@ -132,6 +141,7 @@ VARIABLE  read-base
 VARIABLE  num_read              \ Anzahl der gelesenen S-Ausdruecke
 VARIABLE  running               \ Flag, ob TLISP laeuft
 VARIABLE  rp_save               \ Merker des Return-Stack-Pointers (reset)
+VARIABLE  rp_max                \ Maximale Return-Stack-Ausnutzung (EVAL, GC)
 VARIABLE  load-level            \ Aktuelle LOAD-Verschachtelungstiefe
 VARIABLE  prog-level            \ Aktuelle PROG-Verschachtelungstiefe
 2VARIABLE gensym-num            \ Aktueller GENSYM-Zaehler
@@ -169,6 +179,7 @@ DEFER >oblist
     0 len_char !
     0 read-base !
     0 num_read !
+    0 rp_max !
     0 load-level !
     0 prog-level !
     0. gensym-num 2!
@@ -213,12 +224,8 @@ DEFER >oblist
 
 : cons ( sexpr1 sexpr2 -- sexpr )
 \ ====
-    DEPTH 2 < IF
-        e_too_few_args ERROR
-    ELSE
-        (new-node) SWAP (rplacd)
-                   SWAP (rplaca)
-    THEN
+    (new-node) SWAP (rplacd)
+               SWAP (rplaca)
 ;
 
 
@@ -303,10 +310,8 @@ DEFER >oblist
 \ =============
     OVER CHAR+ (new-object)
     ?DUP IF
-        >R
-        DUP R@ CHAR+ C!             \ Count byte
-        R@ 2 CHARS + SWAP CMOVE     \ String
-        R>
+        2DUP CHAR+ C!                           \ Count byte
+        TUCK 2SWAP 2 CHARS + 3 ROLL CMOVE       \ String
         nil cons
     ELSE
         enomem_char error
@@ -531,15 +536,15 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : free ( -- u )
 \ ====
-    CR ." Code: " {unused} U. ." bytes unused" CR
+    CR ." Code: " {unused} U. ." bytes unused, " rp_max @ U. CR
     ." Node: "
-    freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN >R
-    R@ 4 U.R ."  nodes used, " #nodes R@ - 4 U.R ."  / " #nodes 4 U.R
-         ."  nodes free (" 100 100 R> #nodes */ - 2 U.R ." %)" CR
+    freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN
+    DUP 4 U.R ."  nodes used, " #nodes OVER - 4 U.R ."  / " #nodes 4 U.R
+         ."  nodes free (" 100 100 ROT #nodes */ - 2 U.R ." %)" CR
     ." Char: "
-    len_char @ >R
-    R@ 4 U.R ."  bytes used, " num_chars R@ - 4 U.R ."  / " num_chars 4 U.R
-         ."  bytes free (" 100 100 R> num_chars */ - 2 U.R ." %)" CR
+    len_char @
+    DUP 4 U.R ."  bytes used, " num_chars OVER - 4 U.R ."  / " num_chars 4 U.R
+         ."  bytes free (" 100 100 ROT num_chars */ - 2 U.R ." %)" CR
     nil
 ;
 
@@ -714,11 +719,16 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 ;
 
 
+: rdepth ( -- u )
+\ ======
+    rp_save @ RP@ - CELL /
+;
+
+
 : .indent ( -- )
 \ =======
-    rp_save @ RP@ - CELL /
-    4 - \ 1=driver/reset, 2=top-level, 3=eval(quote), 4=.indent
-    SPACES
+    rdepth 5 - SPACES
+    \ 1=driver/reset, 2=top-level, 3=eval(quote), 4=.indent, 5=rdepth
 ;
 
 
@@ -863,16 +873,16 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
     $debug enabled? IF
         .indent ." exec: " OVER prin DROP SPACE print
     THEN
-    SWAP (car) >R
-    R@ 1+ C@ subr-arity AND 0 ?DO
+    SWAP (car) DUP -ROT DUP >R
+    1+ C@ subr-arity AND 0 ?DO
         DUP atom? IF e_too_few_args error LEAVE ELSE DUP car THEN
         SWAP cdr
     LOOP
-    nil<> IF
-        R> e_too_many_args error
+    R> SWAP nil<> IF
+        e_too_many_args error
     ELSE
-        R@ [ 2 CHARS ] LITERAL + @ EXECUTE
-        R> 1+ C@ subr-ret AND DUP ret-number = IF
+        [ 2 CHARS ] LITERAL + @ EXECUTE
+        SWAP 1+ C@ subr-ret AND DUP ret-number = IF
             DROP new-number
         ELSE DUP ret-bool = IF
             DROP IF $t ELSE nil THEN   \ convert Forth's TRUE to Lisp's T
@@ -925,75 +935,94 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : apply ( fun args env -- result )
 \ =====
-    $debug enabled? IF
-        .indent ." apply: " 2 PICK prin DROP SPACE OVER prin DROP SPACE print
-    THEN
     ROT
-    DUP atom? IF
-        DUP $subr get ?DUP IF
-            NIP NIP SWAP exec
-        ELSE DUP $fsubr get ?DUP IF
-            NIP -ROT nil cons cons exec
-        ELSE DUP $expr get ?DUP IF
-            NIP -ROT RECURSE
-        ELSE DUP $fexpr get ?DUP IF
-            NIP -ROT DUP -ROT nil cons cons SWAP RECURSE
-        ELSE DUP cxr? IF
-            NIP SWAP cxr
-        ELSE DUP 2 PICK assoc ?DUP IF
-            NIP cdr -ROT RECURSE                \ APPLY statt EVAL
+    BEGIN
+        $debug enabled? IF
+            .indent ." apply: " prin SPACE ROT prin SPACE ROT print ROT
+        THEN
+        DUP atom? IF
+            DUP $subr get ?DUP IF
+                NIP NIP SWAP exec TRUE
+            ELSE DUP $fsubr get ?DUP IF
+                NIP -ROT nil cons cons exec TRUE
+            ELSE DUP cxr? IF
+                NIP SWAP cxr TRUE
+            ELSE
+                DUP $expr get ?DUP IF
+                    NIP
+                ELSE DUP $fexpr get ?DUP IF
+                    NIP -ROT DUP -ROT nil cons cons SWAP ROT
+                ELSE DUP 2 PICK assoc ?DUP IF
+                    NIP cdr                         \ APPLY statt EVAL
+                ELSE
+                    e_no_lexpr error
+                THEN
+                THEN
+                THEN
+                FALSE                               \ Iteration
+            THEN
+            THEN
+            THEN
         ELSE
-            e_no_lexpr error
+            DUP car $lambda = IF
+                cdr DUP car 3 ROLL 3 ROLL bind
+                SWAP cdr car SWAP eval
+            ELSE DUP car $funarg = IF
+                NIP cdr
+                DUP car DUP car             \ params
+                SWAP cdr car                \ body
+                ROT cdr car                 \ env
+                ROT SWAP 3 ROLL SWAP bind
+                eval                        \ ggf. APPLY statt EVAL
+            ELSE
+                e_no_lexpr error
+            THEN
+            THEN
+            TRUE
         THEN
-        THEN
-        THEN
-        THEN
-        THEN
-        THEN
-    ELSE DUP car $lambda = IF
-        cdr >R R@ car -ROT bind
-        R> cdr car SWAP eval
-    ELSE DUP car $funarg = IF
-        NIP cdr
-        DUP car DUP car             \ params
-        SWAP cdr car                \ body
-        ROT cdr car                 \ env
-        ROT SWAP 3 ROLL SWAP bind
-        eval                        \ ggf. APPLY statt EVAL
-    ELSE
-        e_no_lexpr error
-    THEN
-    THEN
-    THEN
+    UNTIL
 ;
 
 
-: evcon ( c a -- sexpr )
+: evcon ( sexpr env -- sexpr )
 \ =====
-    OVER null IF
-        DROP
-        prog? INVERT IF w_cond_failed error THEN
-    ELSE OVER car car OVER eval IF
-        SWAP car cdr car SWAP eval
-    ELSE
-        SWAP cdr SWAP RECURSE
+    $debug enabled? IF
+        .indent ." evcon: " SWAP prin SWAP SPACE print
     THEN
-    THEN
+    BEGIN
+        OVER null IF
+            DROP prog? INVERT IF w_cond_failed error THEN
+            TRUE
+        ELSE OVER car car OVER eval IF
+            SWAP car cdr car SWAP eval TRUE
+        ELSE
+            SWAP cdr SWAP FALSE
+        THEN
+        THEN
+    UNTIL
 ;
 
 
 : evlis ( sexpr env -- sexpr )
 \ =====
-     $debug enabled? IF
+    $debug enabled? IF
         .indent ." evlis: " SWAP prin SWAP SPACE print
     THEN
-    OVER null IF
-        DROP
-    ELSE
-        OVER car OVER eval
-        ROT cdr ROT RECURSE
-        cons
-    THEN
+    nil nil 2SWAP
+    BEGIN
+        OVER (list?)
+    WHILE
+        OVER car OVER eval nil cons
+        ROT cdr
+        SWAP 3 ROLL DUP null IF
+            DROP 3 ROLL DROP DUP
+        ELSE
+            OVER rplacd DROP
+            3 ROLL SWAP
+        THEN
+        2SWAP SWAP
+    REPEAT
+    2DROP DROP
 ;
 
 
@@ -1008,11 +1037,18 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 ;
 
 
+: update_rp_max ( -- )
+\ =============
+    rdepth DUP rp_max @ U> IF rp_max ! ELSE DROP THEN
+;
+
+
 : (eval) ( sexpr env -- sexpr )
 \ ======
     $debug enabled? IF
         .indent ." eval: " SWAP prin SWAP SPACE print
     THEN
+    update_rp_max
     OVER atom? IF
         OVER numberp IF
             DROP
@@ -1068,15 +1104,6 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 \ ========
     load-fd @
     -1 load-level +!
-;
-
-
-: tdump ( -- )
-\ =====
-    CR ." first    " tstate           C@ .
-    CR ." next     " tstate CHAR+     C@ .
-    CR ." count    " tstate 2 CHARS + C@ .
-    CR ." content  " tstate 2 CHARS + COUNT TYPE
 ;
 
 
@@ -1207,14 +1234,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : handle-quote ( count -- flag )
 \ ============
-    DUP count-quote AND 0<> DUP IF
+    DUP count-quote AND 0<> IF
         lbrace--
-        >R
         nil SWAP
         count-mask AND 0 DO cons LOOP
-        R>
+        TRUE
     ELSE
-        NIP
+        DROP FALSE
     THEN
 ;
 
@@ -1371,6 +1397,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : gc-walk ( sexpr -- )
 \ =======
+    update_rp_max
     BEGIN
         DUP (list?)
     WHILE
@@ -1454,11 +1481,12 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : (load) ( c-addr u flag -- flag )
 \ ======
-    0 num_read DUP @ DUP read-base +! >R !
-    >R ." loading " 2DUP TYPE CR
+    num_read @ DUP read-base +! 2SWAP       \ READ-Stack verschieben
+    0 num_read !
+    ." loading " 2DUP TYPE CR
     R/O OPEN-FILE 0= DUP IF
         OVER load-push TUCK IF
-            R@ nil<> IF
+            4 PICK nil<> IF
                 tgetline 2DROP tclear       \ skip TEST line
             THEN
             BEGIN
@@ -1466,7 +1494,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
                 DUP $eof = OVER $stop = OR IF
                     TRUE
                 ELSE
-                    R@ nil<> eval(quote)
+                    5 PICK nil<> eval(quote)
                     $echo enabled? IF print THEN
                     FALSE
                 THEN
@@ -1481,8 +1509,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
     ELSE
         NIP
     THEN
-    R> DROP
-    R> DUP NEGATE read-base +! num_read !
+    ROT DROP
+    SWAP DUP NEGATE read-base +! num_read !
     tclear
 ;
 
@@ -1527,9 +1555,9 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 ;
 
 
-: (error) ( n -- )      \ Fehlerbehandlung !!!
+: (error) ( sexpr? n -- )      \ Fehlerbehandlung !!!
 \ =======
-    DUP >R ." ERROR! "
+    TUCK ." ERROR! "
     CASE enomem_node      OF ." Out of node memory."                    ENDOF
          enomem_char      OF ." Out of char memory."                    ENDOF
          e_no_sexpr       OF ." Argument is not a symbolic expression: "
@@ -1547,15 +1575,15 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
          e_lbrace_open    OF ." Unbalanced left parenthesis."           ENDOF
          e_unbalanced     OF ." Unbalanced right parenthesis."          ENDOF
          e_read_exceeded  OF ." Too many s-expressions (per line)."     ENDOF
-         e_load_exceeded  OF ." Too many nested LOADs".                 ENDOF
-         e_prog_exceeded  OF ." Too many nested PROGs".                 ENDOF
+         e_load_exceeded  OF ." Too many nested LOADs."                 ENDOF
+         e_prog_exceeded  OF ." Too many nested PROGs."                 ENDOF
          e_no_prog        OF ." No PROG for GO or RETURN."              ENDOF
          e_no_label       OF ." Label not found: " prin                 ENDOF
          w_cond_failed    OF ." COND fell through."                     ENDOF
                              ." CASE fell through."
     ENDCASE
     CR
-    R> warning AND INVERT IF reset THEN
+    SWAP warning AND INVERT IF reset THEN
 ;
 
 
@@ -1565,7 +1593,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TLISP Version 0.2 ref 2012-12-18"
+    CR ." TLISP Version 0.2 ref 2012-12-23"
     CR ." Copyright (C) 1987-2012 Steffen Hieber"
     CR CR
 ;
@@ -1583,37 +1611,33 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : n-iter ( argl ali cfa n -- result )
 \ ======
-    3 ROLL >R FALSE SWAP
+    FALSE 4 ROLL
     BEGIN
-        R@ nil<>
+        DUP nil<>
     WHILE
-        R@ car 4 PICK eval
+        DUP car 5 PICK eval
         DUP numberp IF
             number@
-            ROT IF 2 PICK EXECUTE ELSE NIP THEN TRUE SWAP
+            ROT IF ROT SWAP 3 PICK EXECUTE ELSE ROT DROP THEN TRUE
         ELSE
             e_no_number error LEAVE
         THEN
-        R> cdr >R
+        ROT cdr
     REPEAT
-    NIP NIP NIP
-    R> DROP
+    2DROP NIP NIP
 ;
 
 
 : l-iter ( argl ali flag -- result )
 \ ======
-    >R SWAP
-    ( ali argl )
+    ROT
     BEGIN
         DUP nil<>
     WHILE
-        ( ali argl car )
-        DUP car 2 PICK eval nil<>
-        ( ali argl result )
-        R@ = IF R> INVERT >R DROP nil ELSE cdr THEN
+        DUP car 3 PICK eval nil<>
+        2 PICK = IF DROP INVERT nil ELSE cdr THEN
     REPEAT
-    2DROP R> INVERT
+    DROP NIP INVERT
 ;
 
 
@@ -1667,7 +1691,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
     SWAP DUP length DUP 1 2 check-args IF
         1 = IF
             car OVER
-        ELSE \ 2
+        ELSE
             DUP cdr car 2 PICK (eval)   \ env
             SWAP car ROT
         THEN
@@ -1735,8 +1759,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
         DUP nil<>
     WHILE
         DUP car 2 PICK eval
-        -ROT cdr
-        DUP nil<> IF ROT DROP ELSE NIP THEN
+        SWAP cdr
+        DUP null IF ROT DROP ELSE NIP THEN
     REPEAT
     DROP
 ;
@@ -1745,16 +1769,14 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 : prop ( argl ali -- plist )
 \ ====
     OVER length 3 3 check-args IF
-        >R
-        DUP car R@ eval SWAP cdr    \ atom
-        DUP car R@ eval SWAP cdr    \ property
-            car R@ eval             \ fn
-        -ROT (prop) ?DUP IF
-            NIP
+        OVER car OVER eval ROT cdr ROT                  \ atom
+        OVER car OVER eval ROT cdr ROT                  \ property
+        2SWAP (prop) ?DUP IF
+            NIP NIP
         ELSE
-            DUP nil<> IF nil R@ apply THEN
+            SWAP car OVER eval                          \ fn
+            DUP null IF NIP ELSE nil ROT apply THEN
         THEN
-        R> DROP
     THEN
 ;
 
