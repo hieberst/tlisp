@@ -4,7 +4,7 @@
 \
 \        Written (w) 1987-2012 by Steffen Hieber
 \
-\        RCS $Id: tlisp.fs,v 1.10 2012-12-23 21:34:40 steffen Exp $
+\        RCS $Id: tlisp.fs,v 1.11 2012-12-31 21:57:03 steffen Exp $
 \
 \
 \ 07.03.1993 TFLOAD aus dem Buch "Forth 83" von Zech uebernommen. Definition
@@ -451,8 +451,21 @@ DEFER >oblist
 ;
 
 
+: rdepth ( -- u )
+\ ======
+    rp_save @ RP@ - CELL /
+;
+
+
+: update_rp_max ( -- )
+\ =============
+    rdepth DUP rp_max @ U> IF rp_max ! ELSE DROP THEN
+;
+
+
 : pair ( x y -- p )
-\ ====
+\ =====
+    update_rp_max
     2DUP null SWAP null OR IF
         2DROP nil
     ELSE
@@ -464,11 +477,51 @@ DEFER >oblist
 ;
 
 
+: pair2 ( x y -- p )
+\ ====
+    nil nil 2SWAP
+    BEGIN
+        2DUP (list?) SWAP (list?) AND
+    WHILE
+        2DUP
+        SWAP car SWAP car cons nil cons
+        ROT cdr ROT cdr
+        4 ROLL DUP null IF
+            DROP 3 ROLL DROP ROT DUP
+        ELSE
+            4 ROLL 4 ROLL TUCK rplacd DROP
+        THEN
+        2SWAP
+    REPEAT
+    2DROP DROP
+;
+
+
 : append ( x y -- xy )
-\ ======
+\ =======
+    update_rp_max
     SWAP ?DUP IF
         DUP car SWAP cdr ROT RECURSE cons
     THEN
+;
+
+
+: append2 ( x y -- xy )
+\ ======
+    nil nil 2SWAP SWAP
+    BEGIN
+        DUP (list?)
+    WHILE
+        DUP cdr SWAP car nil cons
+        4 ROLL DUP null IF
+            DROP 3 ROLL DROP DUP
+        ELSE
+            4 ROLL ROT TUCK rplacd DROP
+        THEN
+        2SWAP
+    REPEAT
+    DROP
+    OVER null IF NIP NIP ELSE rplacd DROP THEN
 ;
 
 
@@ -716,12 +769,6 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 : print ( sexpr -- sexpr )
 \ =====
     prin CR
-;
-
-
-: rdepth ( -- u )
-\ ======
-    rp_save @ RP@ - CELL /
 ;
 
 
@@ -1034,12 +1081,6 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
     ELSE
         DROP FALSE
     THEN
-;
-
-
-: update_rp_max ( -- )
-\ =============
-    rdepth DUP rp_max @ U> IF rp_max ! ELSE DROP THEN
 ;
 
 
