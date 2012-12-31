@@ -1,29 +1,37 @@
 \ some test cases in forth
 
 : find-symbol
-    BL WORD COUNT type-symbol (find-object) DROP
+    BL WORD COUNT 2DUP {upper} type-symbol find-object DROP
 ;
 
 
-\ display a dotted pair (a . b)
-new-symbol a
-new-symbol b
+\ display a dotted pair (A . B)
+new-symbol A
+new-symbol B
 cons
 print DROP
 
-\ display a simple list (c d e)
-new-symbol c
-new-symbol d
-new-symbol e
+\ display a simple list (A B C)
+find-symbol A
+find-symbol B
+new-symbol  C
 nil
 cons cons cons
-print DROP
+print CONSTANT l1
 
-\ display a simple list (a b c . d)
-find-symbol a
-find-symbol b
-find-symbol c
-find-symbol d
+\ display a simple list (D E F)
+new-symbol D
+new-symbol E
+new-symbol F
+nil
+cons cons cons
+print CONSTANT l2
+
+\ display a simple list (A B C . D)
+find-symbol A
+find-symbol B
+find-symbol C
+find-symbol D
 cons cons cons
 print DROP
 
