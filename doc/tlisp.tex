@@ -1,11 +1,11 @@
-% $Id: tlisp.tex,v 1.5 2012-12-23 21:55:14 steffen Exp $
+% $Id$
 %
 % !TeX encoding = latin9
 % !TeX program = pdfLaTeX+MakeIndex+BibTeX
 
 \documentclass[11pt,a4paper,titlepage]{article}
 
-\usepackage[german]{babel}
+\usepackage[ngerman]{babel}
 \usepackage{bibgerm}
 \usepackage[latin9]{inputenc}
 \usepackage{makeidx}
@@ -13,17 +13,25 @@
 \usepackage{nomencl}
 	\makeglossary
 \usepackage{graphicx}
-\usepackage[colorlinks=true,urlcolor=blue]{hyperref}
+\usepackage{ifpdf}
+\usepackage{hyperref}
 \usepackage{tikz}
+	\usetikzlibrary{shapes,arrows}
 
-\usetikzlibrary{shapes,arrows}
-
-\pdfinfo
+\ifpdf
+\hypersetup
 {
-    /Title	(TLISP)
-    /Subject	(TinyLISP Version 1.0)
-    /Author	(Steffen Hieber)
+	bookmarks=true,
+	colorlinks=true,
+	urlcolor=blue,
+	pdfsubject={TinyLISP Version 1.0},
+	pdftitle={TLISP},
+	pdfauthor={Steffen Hieber},
+	pdfpagemode=UseNone,
+	pdfstartview=FitH,
+	pdfstartpage=4
 }
+\fi
 
 \addtolength\topmargin{-27pt}
 \addtolength\textheight{68pt}
@@ -87,7 +95,111 @@ der Sprache LISP, wie ihn Prof.~Dr.~Dieter~M"uller~\cite{mu} beschreibt.
 Dieses Skript ist kein Lehrbuch zu LISP oder Forth, die Lekt"ure von \cite{mu}
 und \cite{ze} wird vorausgesetzt.
 
-\section{Objektspeicher}
+\section{Objektspeicher}\index{Objektspeicher}
+
+\section{Funktionen}
+\subsection{Referenz}
+
+\subsubsection{GREATERP}\index{GREATERP}\label{GREATERP}
+\begin{tabular}[ht]{lll}  
+\multicolumn{3}{l}{GREATERP {\it sexpr1 sexpr2}} \\
+\multicolumn{3}{l}{Prüft, ob die Zahl {\it sexpr1} kleiner ist als
+                   die Zahl {\it sexpr2}.} \\
+Parameter:    & {\it sexpr1} & Die erste zu vergleichende Zahl. \\
+              & {\it sexpr2} & Die zweite zu vergleichende Zahl. \\
+Rückgabewert: & \multicolumn{2}{l}{T, wenn die Zahl {\it sexpr1} kleiner ist
+                als die Zahl {\it sexpr2}, sonst NIL.} \\
+Siehe auch:   & \multicolumn{2}{l}{\hyperref[LESSP]{LESSP}}
+\end{tabular}
+
+\subsubsection{LESSP}\index{LESSP}\label{LESSP}
+\begin{tabular}[ht]{lll}
+\multicolumn{3}{l}{LESSP {\it sexpr1 sexpr2}} \\
+\multicolumn{3}{l}{Prüft, ob die Zahl {\it sexpr1} grösser ist als
+                   die Zahl {\it sexpr2}.} \\
+Parameter:    & {\it sexpr1} & Die erste zu vergleichende Zahl. \\
+Parameter:    & {\it sexpr2} & Die zweite zu vergleichende Zahl. \\
+Rückgabewert: & \multicolumn{2}{l}{T, wenn die Zahl {\it sexpr1} grösser ist
+                als die Zahl {\it sexpr2}, sonst NIL.} \\
+Siehe auch:   & \multicolumn{2}{l}{\hyperref[GREATERP]{GREATERP}}
+\end{tabular}
+
+\subsubsection{NUMBERP}\index{NUMBERP}\label{NUMBERP}
+\begin{tabular}[ht]{lll}
+\multicolumn{3}{l}{NUMBERP {\it sexpr}} \\
+\multicolumn{3}{l}{Prüft, ob das Argument {\it sexpr} eine Zahl ist.} \\
+Parameter:    & {\it sexpr} & das zu prüfende Argument. \\
+Rückgabewert: & \multicolumn{2}{l}{T, wenn das Argument {\it sexpr} eine Zahl ist, sonst NIL.} \\
+Siehe auch:   & \multicolumn{2}{l}{\hyperref[ZEROP]{ZEROP}}
+\end{tabular}
+
+\subsubsection{ZEROP}\index{ZEROP}\label{ZEROP}
+\begin{tabular}[ht]{lll}
+\multicolumn{3}{l}{ZEROP {\it sexpr}} \\
+\multicolumn{3}{l}{Prüft, ob die Zahl {\it sexpr} die Zahl 0 ist.} \\
+Parameter:    & {\it sexpr} & die zu prüfende Zahl. \\
+Rückgabewert: & \multicolumn{2}{l}{T, wenn die Zahl {\it sexpr} die Zahl ist, sonst NIL.} \\
+Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
+\end{tabular}
+
+%new-symbol TIMES      $fsubr ' times           ret-number 2 OR new-subr
+%new-symbol TERPRI     $subr  ' terpri                     0    new-subr
+%$t                    $subr  ' NOOP                       1    new-subr
+%new-symbol SYMBOLP    $subr  ' symbolp         ret-bool   1 OR new-subr
+%new-symbol SUB1       $subr  ' sub1            ret-number 1 OR new-subr
+%new-symbol STRINGP    $subr  ' stringp         ret-bool   1 OR new-subr
+%new-symbol SETQ       $fsubr ' setq                       2    new-subr
+%new-symbol SET        $fsubr ' set                        2    new-subr
+%new-symbol RPLACD     $subr  ' rplacd                     2    new-subr
+%new-symbol RPLACA     $subr  ' rplaca                     2    new-subr
+%new-symbol RETURN     $subr  ' prog-return                1    new-subr
+%new-symbol RESET      $subr  ' reset                      0    new-subr
+%new-symbol REMPROP    $subr  ' remprop         ret-bool   2 OR new-subr
+%new-symbol REMAINDER  $subr  ' remainder       ret-number 2 OR new-subr
+%new-symbol READ       $subr  ' read                       0    new-subr
+%new-symbol QUOTIENT   $fsubr ' quotient        ret-number 2 OR new-subr
+%$quote                $fsubr ' quote                      2    new-subr
+%new-symbol PUTPROP    $subr  ' putprop                    3    new-subr
+%new-symbol PROP       $fsubr ' prop                       2    new-subr
+%new-symbol PROGN      $fsubr ' progn                      2    new-subr
+%new-symbol PROG       $fsubr ' prog                       2    new-subr
+%new-symbol PRINT      $subr  ' print                      1    new-subr
+%new-symbol PRIN2      $subr  ' prin2                      1    new-subr
+%new-symbol PRIN1      $subr  ' prin1                      1    new-subr
+%new-symbol PRIN       $subr  ' prin                       1    new-subr
+%new-symbol PLUS       $fsubr ' plus            ret-number 2 OR new-subr
+%new-symbol PAIR       $subr  ' pair                       2    new-subr
+%new-symbol OR         $fsubr ' l-or            ret-bool   2 OR new-subr
+%new-symbol NULL       $subr  ' null            ret-bool   1 OR new-subr
+%new-symbol NOT        $subr  ' null            ret-bool   1 OR new-subr
+%nil                   $fsubr ' nilf            ret-bool   2 OR new-subr
+%new-symbol MINUS      $subr  ' minus           ret-number 1 OR new-subr
+%new-symbol MEMBER     $subr  ' member          ret-bool   2 OR new-subr
+%new-symbol LOAD       $fsubr ' load            ret-bool   2 OR new-subr
+%new-symbol LISTP      $subr  ' list?           ret-bool   1 OR new-subr
+%new-symbol LIST       $fsubr ' evlis                      2    new-subr
+%new-symbol LENGTH     $subr  ' length          ret-number 1 OR new-subr
+%$lambda               $fsubr ' lambda                     2    new-subr
+%new-symbol GO         $fsubr ' prog-go                    2    new-subr
+%new-symbol GET        $subr  ' get                        2    new-subr
+%new-symbol GENSYM     $subr  ' gensym                     0    new-subr
+%$gc                   $subr  ' gc              ret-bool   0 OR new-subr
+%new-symbol FUNCTION   $fsubr ' function                   2    new-subr
+%new-symbol FREE       $subr  ' free            ret-bool   0 OR new-subr
+%new-symbol EXIT       $subr  ' exitf                      0    new-subr
+%$evalquote            $fsubr ' evalquote                  2    new-subr
+%$eval                 $fsubr ' eval1                      2    new-subr
+%new-symbol EQ         $subr  ' =               ret-bool   2 OR new-subr
+%new-symbol DIFFERENCE $fsubr ' difference      ret-number 2 OR new-subr
+%new-symbol CONS       $subr  ' cons                       2    new-subr
+%new-symbol COND       $fsubr ' evcon                      2    new-subr
+%new-symbol BIND       $subr  ' bind                       3    new-subr
+%new-symbol ATOM       $subr  ' atom?           ret-bool   1 OR new-subr
+%new-symbol ASSOC      $subr  ' assoc                      2    new-subr
+%new-symbol APPLY      $subr  ' apply                      3    new-subr
+%new-symbol APPEND     $subr  ' append                     2    new-subr
+%new-symbol AND        $fsubr ' l-and           ret-bool   2 OR new-subr
+%new-symbol ADD1       $subr  ' add1            ret-number 1 OR new-subr
 
 \section{Internes}
 \subsection{PRIN}
@@ -118,6 +230,7 @@ und \cite{ze} wird vorausgesetzt.
     \path [line] (print_cdr) -- (end);
 \end{tikzpicture}
 
+\newpage
 \section{Fragen}
 \begin{enumerate}
 \item Wie groß ist ein FCB? Warum hat B/FCB in F83 den Wert 42?
@@ -126,8 +239,10 @@ und \cite{ze} wird vorausgesetzt.
 \item Warum hat das ursprüngliche TFLOAD von R.~Zech auf dem C128 funktioniert?
 \end{enumerate}
 
+\newpage
 \section{Offene Punkte}
 \begin{enumerate}
+\item Mehrfach-Quote, i.e. ''a = (quote (quote a))
 \item Minimierung der Verwendung des Return-Stacks durch Vermeidung von
       Rekursion und des Worts {\tt \textgreater R}; {\tt TESTS.LSP} muss
       unter F83 funktionieren.

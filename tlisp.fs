@@ -4,7 +4,7 @@
 \
 \        Written (w) 1987-2012 by Steffen Hieber
 \
-\        RCS $Id: tlisp.fs,v 1.11 2012-12-31 21:57:03 steffen Exp $
+\        RCS $Id$
 \
 \
 \ 07.03.1993 TFLOAD aus dem Buch "Forth 83" von Zech uebernommen. Definition
@@ -57,7 +57,7 @@
 
 \ Namenskonventionen:
 \ -------------------
-\   $name   Symbol, z.B. $apval
+\   $name   Symbol, z.B. $apval (sigil)
 \   {name}  Wort, das nicht in jedem Forth-System vorhanden ist, z.B. {upc}
 
 ONLY FORTH DEFINITIONS ALSO   \ Grund-Vokabular erweitern ...
@@ -78,16 +78,21 @@ tlisp DEFINITIONS       \ alle neuen Woerter ab jetzt in das Vokabular TLISP
                               \ Hilfskonstanten
 2 CELLS CONSTANT sizeof_node  \ Groesse eines Knotens
 0       CONSTANT nil          \ "not in list"
-192     CONSTANT subr-ret     \ 0: ret-sexpr
-128     CONSTANT ret-number
-64      CONSTANT ret-bool
-63      CONSTANT subr-arity
-49152   CONSTANT count-flags  \ TODO: 32-Bit
-32768   CONSTANT count-dot
-16384   CONSTANT count-quote
-16383   CONSTANT count-mask
-9       CONSTANT tab
 1       CONSTANT gc-used      \ Vorbedingung: CELL ist eine gerade Zahl
+9       CONSTANT tab          \ ASCII TAB
+16      CONSTANT b/cell       \ TODO: 32-Bit
+
+                                \ subr attr
+63         CONSTANT subr-arity  \ Bit 0..5
+192        CONSTANT subr-ret    \ Bit 6..7    0: ret-sexpr, 192: reserved
+1 6 LSHIFT CONSTANT ret-bool
+2 6 LSHIFT CONSTANT ret-number
+
+b/cell 2 -                CONSTANT count-bits
+3 count-bits    LSHIFT    CONSTANT count-flags      \ Bits 14..15      
+1 count-bits    LSHIFT 1- CONSTANT count-mask       \ Bits  0..13
+1 count-bits    LSHIFT    CONSTANT count-quote
+1 count-bits 1+ LSHIFT    CONSTANT count-dot
 
                               \ Fehlerkonstanten
                               \   wenn Bit 7 gesetzt, dann nur Warnung
@@ -313,6 +318,7 @@ DEFER >oblist
         2DUP CHAR+ C!                           \ Count byte
         TUCK 2SWAP 2 CHARS + 3 ROLL CMOVE       \ String
         nil cons
+        >oblist
     ELSE
         enomem_char error
     THEN
@@ -376,7 +382,7 @@ DEFER >oblist
 
 : new-symbol ( -- atom )
 \ ==========
-    BL WORD COUNT 2DUP {upper} type-symbol (new-literal) >oblist
+    BL WORD COUNT 2DUP {upper} type-symbol (new-literal)
 ;
 
 
@@ -643,23 +649,25 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 ;
 
 
+: new-literal ( c-addr u type -- atom )
+\ ===========
+    -ROT 2DUP 4 PICK find-object IF
+        NIP NIP NIP
+    ELSE
+        DROP ROT (new-literal)
+    THEN
+;
+
+
 : (new-symbol) ( c-addr u -- atom )
 \ ============
-    2DUP type-symbol find-object IF
-        NIP NIP
-    ELSE
-        DROP type-symbol (new-literal) >oblist
-    THEN
+    type-symbol new-literal
 ;
 
 
 : new-string ( c-addr u -- atom )
 \ ==========
-    2DUP type-string find-object IF
-        NIP NIP
-    ELSE
-        DROP type-string (new-literal) >oblist
-    THEN
+    type-string new-literal
 ;
 
 
@@ -1598,33 +1606,33 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : (error) ( sexpr? n -- )      \ Fehlerbehandlung !!!
 \ =======
-    TUCK ." ERROR! "
-    CASE enomem_node      OF ." Out of node memory."                    ENDOF
-         enomem_char      OF ." Out of char memory."                    ENDOF
+    DUP ." ERROR! "
+    CASE enomem_node      OF ." Out of node memory."                      ENDOF
+         enomem_char      OF ." Out of char memory."                      ENDOF
          e_no_sexpr       OF ." Argument is not a symbolic expression: "
-                             prin                                       ENDOF
-         e_no_atom        OF ." Argument is not an atom: " prin         ENDOF
-         e_no_string      OF ." Argument is not a string."              ENDOF
-         e_no_number      OF ." Argument is not a number."              ENDOF
-         e_no_lexpr       OF ." Not a lambda expression: " prin         ENDOF
-         e_not_bound      OF ." Atom is not bound: " prin               ENDOF
-         e_too_few_args   OF ." Arguments missing."                     ENDOF
-         e_too_many_args  OF ." Too many arguments."                    ENDOF
-         e_unknown_type   OF ." Unknown atom type."                     ENDOF
-         e_rquote_missing OF ." Missing right double quote."            ENDOF
-         e_misplaced_dot  OF ." Misplaced dot."                         ENDOF
-         e_lbrace_open    OF ." Unbalanced left parenthesis."           ENDOF
-         e_unbalanced     OF ." Unbalanced right parenthesis."          ENDOF
-         e_read_exceeded  OF ." Too many s-expressions (per line)."     ENDOF
-         e_load_exceeded  OF ." Too many nested LOADs."                 ENDOF
-         e_prog_exceeded  OF ." Too many nested PROGs."                 ENDOF
-         e_no_prog        OF ." No PROG for GO or RETURN."              ENDOF
-         e_no_label       OF ." Label not found: " prin                 ENDOF
-         w_cond_failed    OF ." COND fell through."                     ENDOF
+                                                           SWAP prin DROP ENDOF
+         e_no_atom        OF ." Argument is not an atom: " SWAP prin DROP ENDOF
+         e_no_string      OF ." Argument is not a string."                ENDOF
+         e_no_number      OF ." Argument is not a number."                ENDOF
+         e_no_lexpr       OF ." Not a lambda expression: " SWAP prin DROP ENDOF
+         e_not_bound      OF ." Atom is not bound: "       SWAP prin DROP ENDOF
+         e_too_few_args   OF ." Arguments missing."                       ENDOF
+         e_too_many_args  OF ." Too many arguments."                      ENDOF
+         e_unknown_type   OF ." Unknown atom type."                       ENDOF
+         e_rquote_missing OF ." Missing right double quote."              ENDOF
+         e_misplaced_dot  OF ." Misplaced dot."                           ENDOF
+         e_lbrace_open    OF ." Unbalanced left parenthesis."             ENDOF
+         e_unbalanced     OF ." Unbalanced right parenthesis."            ENDOF
+         e_read_exceeded  OF ." Too many s-expressions (per line)."       ENDOF
+         e_load_exceeded  OF ." Too many nested LOADs."                   ENDOF
+         e_prog_exceeded  OF ." Too many nested PROGs."                   ENDOF
+         e_no_prog        OF ." No PROG for GO or RETURN."                ENDOF
+         e_no_label       OF ." Label not found: "         SWAP prin DROP ENDOF
+         w_cond_failed    OF ." COND fell through."                       ENDOF
                              ." CASE fell through."
     ENDCASE
     CR
-    SWAP warning AND INVERT IF reset THEN
+    warning AND INVERT IF reset THEN
 ;
 
 
@@ -1634,8 +1642,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TLISP Version 0.2 ref 2012-12-23"
-    CR ." Copyright (C) 1987-2012 Steffen Hieber"
+    CR ." TLISP Version 0.2 ref 2014-03-22"
+    CR ." Copyright (C) 1987-2014 Steffen Hieber"
     CR CR
 ;
 
@@ -1758,8 +1766,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : >digit ( u -- char )
 \ ======
-    BASE @ MOD
-    DUP 10 < IF [CHAR] 0 ELSE [CHAR] A 10 - THEN +
+\   BASE @ MOD
+    DUP 10 < IF [CHAR] 0 ELSE [ CHAR A 10 - ] LITERAL THEN +
 ;
 
 

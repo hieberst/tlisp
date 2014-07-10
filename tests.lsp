@@ -1,4 +1,4 @@
-; $Id: tests.lsp,v 1.2 2012-12-23 21:31:37 steffen Exp $
+; $Id$
 
 (LOAD "sqr.lsp")
 

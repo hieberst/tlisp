@@ -1,6 +1,6 @@
 @echo off
 
-rem $Id: tlisp.cmd,v 1.5 2012-12-18 21:02:09 steffen Exp $
+rem $Id$
 
 if not defined GFORTH set GFORTH=%ProgramFiles%\gforth\gforth.exe
 

@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.3 2012-12-18 21:03:48 steffen Exp $
+# $Id$
 
 tlisp.pdf: tlisp.tex tlisp.bib
 	pdflatex tlisp

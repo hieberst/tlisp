@@ -1,4 +1,4 @@
-; $Id: trace.lsp,v 1.1 2012-12-18 20:58:17 steffen Exp $
+; $Id$
 ;
 ; siehe "LISP" von Dieter Mueller
 ;   Kapitel 11, Seiten 138-141 "Tracing"
