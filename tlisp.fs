@@ -1,8 +1,8 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.2 ref 2012-12-23
+\              Version 0.2 ref 2014-07-10
 \
-\        Written (w) 1987-2012 by Steffen Hieber
+\        Written (w) 1987-2015 by Steffen Hieber
 \
 \        RCS $Id$
 \
@@ -89,7 +89,7 @@ tlisp DEFINITIONS       \ alle neuen Woerter ab jetzt in das Vokabular TLISP
 2 6 LSHIFT CONSTANT ret-number
 
 b/cell 2 -                CONSTANT count-bits
-3 count-bits    LSHIFT    CONSTANT count-flags      \ Bits 14..15      
+3 count-bits    LSHIFT    CONSTANT count-flags      \ Bits 14..15
 1 count-bits    LSHIFT 1- CONSTANT count-mask       \ Bits  0..13
 1 count-bits    LSHIFT    CONSTANT count-quote
 1 count-bits 1+ LSHIFT    CONSTANT count-dot
@@ -572,6 +572,7 @@ new-symbol FUNARG                       CONSTANT $funarg
 new-symbol FSUBR                        CONSTANT $fsubr
 new-symbol FEXPR     DUP $apval putprop CONSTANT $fexpr
 new-symbol EXPR      DUP $apval putprop CONSTANT $expr
+new-symbol EXIT                         CONSTANT $exit
 new-symbol EVALQUOTE                    CONSTANT $evalquote
 new-symbol EVAL                         CONSTANT $eval
 new-symbol EOF       DUP $apval putprop CONSTANT $eof
@@ -580,11 +581,12 @@ new-symbol DEBUG                        CONSTANT $debug
 new-symbol CONFIG                       CONSTANT $config
 
 
-$config $t  $gc        putprop DROP     \ Garbage Collection (GC) ein/aus
-$config nil $evalquote putprop DROP     \ EVALQUOTE ein/aus
-$config nil $echo      putprop DROP     \ Echo ein/aus
-$config nil $debug     putprop DROP     \ Debug-Ausgaben ein/aus
-$config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
+$config $t  $gc        putprop DROP     \ Garbage Collection (GC) EIN/aus
+$config nil $exit      putprop DROP     \ BYE nach EXIT ein/AUS
+$config nil $evalquote putprop DROP     \ EVALQUOTE ein/AUS
+$config nil $echo      putprop DROP     \ Echo ein/AUS
+$config nil $debug     putprop DROP     \ Debug-Ausgaben ein/AUS
+$config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 
 : enabled? ( sexpr -- flag )
@@ -595,7 +597,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 
 : free ( -- u )
 \ ====
-    CR ." Code: " {unused} U. ." bytes unused, " rp_max @ U. CR
+    CR ." Code: " {unused} U. ." bytes unused, rp_max=" rp_max @ U. CR
     ." Node: "
     freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN
     DUP 4 U.R ."  nodes used, " #nodes OVER - 4 U.R ."  / " #nodes 4 U.R
@@ -1581,6 +1583,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
         running @ IF print THEN DROP            \ print
         gc DROP                                 \ gc
     REPEAT
+    $exit enabled? IF BYE THEN
 ;
 
 
@@ -1642,8 +1645,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TLISP Version 0.2 ref 2014-03-22"
-    CR ." Copyright (C) 1987-2014 Steffen Hieber"
+    CR ." TinyLISP Version 0.2 ref 2014-03-22"
+    CR ." Copyright (C) 1987-2015 Steffen Hieber"
     CR CR
 ;
 
@@ -1767,7 +1770,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/aus
 : >digit ( u -- char )
 \ ======
 \   BASE @ MOD
-    DUP 10 < IF [CHAR] 0 ELSE [ CHAR A 10 - ] LITERAL THEN +
+    DUP 10 < IF [CHAR] 0 ELSE [CHAR] A 10 - THEN +
+\   [ CHAR A 10 - ] LITERAL geht wegen deferred Wort CHAR in F83 nicht
 ;
 
 
@@ -1903,7 +1907,7 @@ new-symbol GENSYM     $subr  ' gensym                     0    new-subr
 $gc                   $subr  ' gc              ret-bool   0 OR new-subr
 new-symbol FUNCTION   $fsubr ' function                   2    new-subr
 new-symbol FREE       $subr  ' free            ret-bool   0 OR new-subr
-new-symbol EXIT       $subr  ' exitf                      0    new-subr
+$exit                 $subr  ' exitf                      0    new-subr
 $evalquote            $fsubr ' evalquote                  2    new-subr
 $eval                 $fsubr ' eval1                      2    new-subr
 new-symbol EQ         $subr  ' =               ret-bool   2 OR new-subr

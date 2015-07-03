@@ -11,7 +11,7 @@
 \usepackage{makeidx}
 	\makeindex
 \usepackage{nomencl}
-	\makeglossary
+	\makenomenclature
 \usepackage{graphicx}
 \usepackage{ifpdf}
 \usepackage{hyperref}
@@ -203,6 +203,7 @@ Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
 
 \section{Internes}
 \subsection{PRIN}
+%\begin{figure}[h]
 \tikzstyle{fc_terminal} = [draw, rounded rectangle,node distance=3cm, minimum width=3cm,minimum height=2em]
 \tikzstyle{fc_data} = [draw, trapezium, inner xsep=0pt,trapezium left angle=70, trapezium right angle=110, node distance=3cm,minimum height=4em]
 \tikzstyle{fc_branch} = [draw, diamond, shape aspect=2, text width=4.5em, node distance=3cm, inner sep=0pt]
@@ -229,6 +230,77 @@ Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
     \path [line] (print_atom) |- (end);
     \path [line] (print_cdr) -- (end);
 \end{tikzpicture}
+%\caption{Flußdiagramm: PRIN}
+%\end{figure}
+
+\newpage
+\section{Installation}
+\subsection{Gforth}
+\subsubsection{Android}
+Installation von Gforth \\
+Kopieren der Dateien {\texttt tlisp.fs} und \texttt{*.lsp} nach
+\texttt{/storage/extSdCard/tlisp}
+\begin{verbatim}
+\ run tlisp on my android handy
+s" /storage/extSdCard/tlisp" set-dir drop
+include tlisp.fs
+driver
+\end{verbatim}
+
+\subsection{F83}
+In F83 wird TLISP wie folgt ausgeführt:
+\begin{verbatim}
+open tfload.blk 2 load
+open eaker.f83  tfload
+open ans.f83    tfload
+open tlisp.fs   tfload
+driver
+\end{verbatim}
+Als Hilfe dazu gibt es diverse Helferlein:
+\begin{itemize}
+\item[tlisp.btm] Batch-Datei für 4DOS
+\item[tlisp.ahk] AutoHotKey-Skript für Windows
+\item[tlisp.sub] Submit-Datei für CP/M
+\end{itemize}
+
+Der Arbeitsspeicher ist in F83 wie folgt organisiert:
+\begin{verbatim}
++------------------------------ limit
+|
++------------------------------ first
+| 
++------------------------------ 54230 rp0 @
+| return stack
++------------------------------ 54226 rp@ 
+| terminal input buffer
++------------------------------ 54030 sp0 @ (tib)
+| data stack
+|------------------------------ 54029 sp@
+| scratch area
++------------------------------ 24543 pad (here 80 +)
+| 
++------------------------------ 24463 dp @ (here)
+| dictionary
++------------------------------
+\end{verbatim}
+
+\subsubsection{CP/M}
+\begin{verbatim}
+8080 Forth 83 Model
+Version 2.1.0 Modified 01Jun84
+\end{verbatim}
+Auf Laufwerk B: befindet sich F83, Laufwerk C: TLISP.
+\begin{verbatim}
+c:
+r ..\\tlisp.sub l
+submit tlisp ..\\
+\end{verbatim}
+
+\subsubsection{DOS}
+\begin{verbatim}
+8086 Forth 83 Model
+Version 2.1.0 Modified 01Jun84
+\end{verbatim}
 
 \newpage
 \section{Fragen}
@@ -244,7 +316,7 @@ Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
 \begin{enumerate}
 \item Mehrfach-Quote, i.e. ''a = (quote (quote a))
 \item Minimierung der Verwendung des Return-Stacks durch Vermeidung von
-      Rekursion und des Worts {\tt \textgreater R}; {\tt TESTS.LSP} muss
+      Rekursion und des Worts {\texttt \textgreater R}; {\tt TESTS.LSP} muss
       unter F83 funktionieren.
       (Die aktuelle Ausnutzung nach Start liegt bei 61 Adressen, bei
       TESTS.LSP sogar bei 201 Adressen, siehe FREE)
@@ -265,11 +337,22 @@ Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
 \item Dokumentation
 \end{enumerate}
 
-% Stichwortverzeichnis
+% Tabellenverzeichnis
 \newpage
-\renewcommand{\indexname}{Stichwortverzeichnis}
-\addcontentsline{toc}{section}{\indexname}
-\printindex
+\addcontentsline{toc}{section}{\listtablename} 
+\listoftables
+
+% Abbildungsverzeichnis
+\addcontentsline{toc}{section}{\listfigurename} 
+\listoffigures
+
+% Abkürzungsverzeichnis
+\nomenclature{CP/M}{\uu{C}ontrol \uu{P}rogram for \uu{M}icroprocessors}
+
+\newpage
+\renewcommand{\nomname}{Abkürzungsverzeichnis}
+\addcontentsline{toc}{section}{\nomname}
+\printnomenclature
 
 % Literaturverzeichnis
 \nocite{*}
@@ -277,5 +360,11 @@ Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
 \addcontentsline{toc}{section}{\refname}
 \bibliography{tlisp}
 \bibliographystyle{gerplain}
+
+% Stichwortverzeichnis
+\newpage
+\renewcommand{\indexname}{Stichwortverzeichnis}
+\addcontentsline{toc}{section}{\indexname}
+\printindex
 
 \end{document}
