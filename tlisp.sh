@@ -1,4 +1,4 @@
 # $Id$
 
 #! /bin/sh
-gforth tlisp.fs
+gforth tlisp.fs -e "driver"

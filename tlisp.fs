@@ -1,8 +1,8 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.2 ref 2014-07-10
+\              Version 0.2 ref 2016-01-31
 \
-\        Written (w) 1987-2015 by Steffen Hieber
+\        Written (w) 1987-2016 by Steffen Hieber
 \
 \        RCS $Id$
 \
@@ -582,7 +582,7 @@ new-symbol CONFIG                       CONSTANT $config
 
 
 $config $t  $gc        putprop DROP     \ Garbage Collection (GC) EIN/aus
-$config nil $exit      putprop DROP     \ BYE nach EXIT ein/AUS
+$config $t  $exit      putprop DROP     \ BYE nach EXIT ein/AUS
 $config nil $evalquote putprop DROP     \ EVALQUOTE ein/AUS
 $config nil $echo      putprop DROP     \ Echo ein/AUS
 $config nil $debug     putprop DROP     \ Debug-Ausgaben ein/AUS
@@ -959,7 +959,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     DUP symbolp IF
         (car) CHAR+ COUNT DUP 2 > IF
             2DUP OVER       C@ [CHAR] C =
-            -ROT 1- CHARS + C@ [CHAR] R = OR IF
+            -ROT 1- CHARS + C@ [CHAR] R = AND IF
                 TRUE SWAP 1- 1 DO
                     OVER I CHARS + C@
                     DUP [CHAR] A = SWAP [CHAR] D = OR AND
@@ -1645,8 +1645,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.2 ref 2014-03-22"
-    CR ." Copyright (C) 1987-2015 Steffen Hieber"
+    CR ." TinyLISP Version 0.2 ref 2016-01-31"
+    CR ." Copyright (C) 1987-2016 Steffen Hieber"
     CR CR
 ;
 
@@ -1769,7 +1769,6 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : >digit ( u -- char )
 \ ======
-\   BASE @ MOD
     DUP 10 < IF [CHAR] 0 ELSE [CHAR] A 10 - THEN +
 \   [ CHAR A 10 - ] LITERAL geht wegen deferred Wort CHAR in F83 nicht
 ;
