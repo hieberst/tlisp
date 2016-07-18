@@ -11,7 +11,9 @@
 FORTH DEFINITIONS
 DECIMAL
 
-\ defined in TFLOAD.BLK
+FALSE WARNING !
+
+\ defined in TFLOAD.BLK, used in ANS.F83 and EAKER.F83
 : ENDPGM NOOP ; IMMEDIATE
 
 \ defined in F83, needed from ANS.F83

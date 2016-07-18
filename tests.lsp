@@ -23,6 +23,10 @@
 (CHECK '(SQR 3)                   9)
 (CHECK '(CADR '(A B C))           'B)
 (CHECK '(CADR '(A,B,C))           'B)
+(CHECK '''A                       '(QUOTE A))
+
+; More than one sexpr per line
+(CHECK '(PLUS 1 2) 3) (CHECK '(TIMES 2 3) 6)
 
 ; PROP
 (CSETQ A 3)
@@ -38,13 +42,11 @@
 (CHECK '(LOAD "fac.lsp") T)
 (CHECK '(FACTORIAL 7) 5040)
 (CHECK '(FAC2      7) 5040)
-(GC)
 
 ; Fibonacci-Folge
 (CHECK '(LOAD "fib.lsp") T)
 (CHECK '(FIB1 10) 55)
 (CHECK '(FIB2 10) 55)
-(GC)
 
 ; Umkehrung einer Liste
 (CHECK '(LOAD "rev.lsp")      T)
@@ -53,7 +55,6 @@
 (CHECK '(REV2 '(A B C))       '(C B A))
 (CHECK '(REV3 '(A B C))       '(C B A))
 (CHECK '(REVALL '(A (B C) D)) '(D (C B) A))
-(GC)
 
 ; MAP-Funktionen
 (CHECK '(LOAD "map.lsp")                                        T)
@@ -61,12 +62,10 @@
 (CHECK '(MAPC    '(1 2 3 4) (LAMBDA (N) (PRINT (SQR N))))       NIL)
 (CHECK '(MAPLIST '(1 2 3 4) (LAMBDA (L) (SQR (CAR L))))         '(1 4 9 16))
 (CHECK '(MAP     '(1 2 3 4) (LAMBDA (L) (PRINT (SQR (CAR L))))) NIL)
-(GC)
 
 ; Pascal'sches Dreieck (MAPLIST)
 (CHECK '(LOAD "pasc.lsp") T)
 (CHECK '(PASC 4)          '(1 4 6 4 1))
-(GC)
 
 ; Mengenoperationen
 (CHECK '(LOAD "set.lsp")                 T)
@@ -74,7 +73,6 @@
 (CHECK '(INTERSECTION '(A B C) '(B C D)) '(B C))
 (CHECK '(MEMBER 'C '(A B C))             T)
 (CHECK '(MEMBER 'B '(A (B) C))           NIL)
-(GC)
 
 ; T und NIL
 (CHECK '(ATOM  T)              T)
@@ -102,7 +100,6 @@
 (SQR 3)
 (FACTORIAL 7)
 (UNTRACE SQR FACTORIAL)
-(GC)
 
 ; EVALQUOTE
 (CHECK '(LOAD "tests.txt" T) T)

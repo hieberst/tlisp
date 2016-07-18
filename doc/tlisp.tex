@@ -101,7 +101,7 @@ und \cite{ze} wird vorausgesetzt.
 \subsection{Referenz}
 
 \subsubsection{GREATERP}\index{GREATERP}\label{GREATERP}
-\begin{tabular}[ht]{lll}  
+\begin{tabular}[ht]{lll}
 \multicolumn{3}{l}{GREATERP {\it sexpr1 sexpr2}} \\
 \multicolumn{3}{l}{Prüft, ob die Zahl {\it sexpr1} kleiner ist als
                    die Zahl {\it sexpr2}.} \\
@@ -268,17 +268,17 @@ Der Arbeitsspeicher ist in F83 wie folgt organisiert:
 +------------------------------ limit
 |
 +------------------------------ first
-| 
+|
 +------------------------------ 54230 rp0 @
 | return stack
-+------------------------------ 54226 rp@ 
++------------------------------ 54226 rp@
 | terminal input buffer
 +------------------------------ 54030 sp0 @ (tib)
 | data stack
 |------------------------------ 54029 sp@
 | scratch area
 +------------------------------ 24543 pad (here 80 +)
-| 
+|
 +------------------------------ 24463 dp @ (here)
 | dictionary
 +------------------------------
@@ -302,6 +302,20 @@ submit tlisp ..\\
 Version 2.1.0 Modified 01Jun84
 \end{verbatim}
 
+\subsection{F-PC}
+\begin{verbatim}
+d:
+cd \work\src\tlisp
+fload tlisp.seq
+\end{verbatim}
+
+\subsection{Win32Forth}
+\begin{verbatim}
+cd d:\work\src\tlisp
+fload tlisp.f
+driver
+\end{verbatim}
+
 \newpage
 \section{Fragen}
 \begin{enumerate}
@@ -314,12 +328,11 @@ Version 2.1.0 Modified 01Jun84
 \newpage
 \section{Offene Punkte}
 \begin{enumerate}
-\item Mehrfach-Quote, i.e. ''a = (quote (quote a))
 \item Minimierung der Verwendung des Return-Stacks durch Vermeidung von
       Rekursion und des Worts {\texttt \textgreater R}; {\tt TESTS.LSP} muss
       unter F83 funktionieren.
-      (Die aktuelle Ausnutzung nach Start liegt bei 61 Adressen, bei
-      TESTS.LSP sogar bei 201 Adressen, siehe FREE)
+      (Die aktuelle Ausnutzung nach Start liegt bei 38 Adressen, bei
+      TESTS.LSP sogar bei 202 Adressen, siehe FREE)
 \begin{verbatim}
       Status:       RECURSE         >R
                     -------         --
@@ -332,18 +345,16 @@ Version 2.1.0 Modified 01Jun84
                                     >NUMBER
                                     OPEN-FILE
 \end{verbatim}
-
-\item Automatische GC bei LOAD
 \item Dokumentation
 \end{enumerate}
 
 % Tabellenverzeichnis
 \newpage
-\addcontentsline{toc}{section}{\listtablename} 
+\addcontentsline{toc}{section}{\listtablename}
 \listoftables
 
 % Abbildungsverzeichnis
-\addcontentsline{toc}{section}{\listfigurename} 
+\addcontentsline{toc}{section}{\listfigurename}
 \listoffigures
 
 % Abkürzungsverzeichnis

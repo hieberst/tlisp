@@ -1,0 +1,2 @@
+(LOAD "infinite.lsp")
+

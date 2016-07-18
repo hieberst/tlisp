@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.2 ref 2016-01-31
+\              Version 0.3 ref 2016-07-19
 \
 \        Written (w) 1987-2016 by Steffen Hieber
 \
@@ -48,7 +48,7 @@
 \               Gforth   : 104
 \
 \          Groesse des Return-Stacks:
-\               F83      : 100  (RP0@ TIB - CELL /)
+\               F83      : 100  (RP0 @ TIB - CELL /)
 \               FPC      : 125
 \
 \          Groesse von TLISP:
@@ -68,31 +68,37 @@ tlisp DEFINITIONS       \ alle neuen Woerter ab jetzt in das Vokabular TLISP
 
                               \ Konfiguration (statisch)
 1500 CELLS CONSTANT #nodes    \ Anzahl der vorhandenen Zellenpaare in MEM_NODE
-2500    CONSTANT num_chars    \ Groesse des Objektspeichers MEM_CHAR in Zeichen
-16      CONSTANT read-depth   \ Groesse des READ-Stacks
-4       CONSTANT load-depth   \ Maximale LOAD-Verschachtelungstiefe (FCBS)
-16      CONSTANT #progs       \ Maximale PROG-Verschachtelungstiefe
-80      CONSTANT tlen         \ Groesse des Eingabepuffers fuer ACCEPT
-6       CONSTANT d/gensym     \ Anzahl der Ziffern bei GENSYM
+2500       CONSTANT #chars    \ Groesse des Objektspeichers MEM_CHAR in Zeichen
+16         CONSTANT #read     \ Groesse des READ-Stacks
+20         CONSTANT #expr     \ Groesse des EXPR-Stacks
+4          CONSTANT #load     \ Maximale LOAD-Verschachtelungstiefe (FCBS)
+16         CONSTANT #progs    \ Maximale PROG-Verschachtelungstiefe
+80         CONSTANT tlen      \ Groesse des Eingabepuffers fuer ACCEPT
+6          CONSTANT d/gensym  \ Anzahl der Ziffern bei GENSYM
 
-                              \ Hilfskonstanten
-2 CELLS CONSTANT sizeof_node  \ Groesse eines Knotens
-0       CONSTANT nil          \ "not in list"
-1       CONSTANT gc-used      \ Vorbedingung: CELL ist eine gerade Zahl
-9       CONSTANT tab          \ ASCII TAB
-16      CONSTANT b/cell       \ TODO: 32-Bit
+                                    \ Hilfskonstanten
+2 CELLS       CONSTANT sizeof_node  \ Groesse eines Knotens
+0             CONSTANT nil          \ "not in list"
+1             CONSTANT gc-used      \ GC-Marker-Bit, Annahme: CELL ist gerade
+8             CONSTANT bs           \ ASCII BS
+9             CONSTANT tab          \ ASCII TAB
+8 CELLS CHARS CONSTANT b/cell       \ Bitbreite N einer Zelle
 
-                                \ subr attr
-63         CONSTANT subr-arity  \ Bit 0..5
-192        CONSTANT subr-ret    \ Bit 6..7    0: ret-sexpr, 192: reserved
-1 6 LSHIFT CONSTANT ret-bool
-2 6 LSHIFT CONSTANT ret-number
+                                    \ subr attr
+63           CONSTANT subr-arity    \ Bit 0..5: Stelligkeit
+192          CONSTANT subr-ret      \ Bit 6..7: Rueckgabetyp
+\ 0 6 LSHIFT CONSTANT ret-sexpr
+  1 6 LSHIFT CONSTANT ret-bool
+  2 6 LSHIFT CONSTANT ret-number
+\ 3 6 LSHIFT CONSTANT ret-unused    \ Reserviert
 
-b/cell 2 -                CONSTANT count-bits
-3 count-bits    LSHIFT    CONSTANT count-flags      \ Bits 14..15
-1 count-bits    LSHIFT 1- CONSTANT count-mask       \ Bits  0..13
-1 count-bits    LSHIFT    CONSTANT count-quote
-1 count-bits 1+ LSHIFT    CONSTANT count-dot
+2             CONSTANT #cbf \ Bitanzahl F (cnt-bits-flags: Flags)
+b/cell #cbf - CONSTANT #cbc \ Bitanzahl C (cnt-bits-count: Zaehler)
+
+1 #cbf LSHIFT 1- #cbc    LSHIFT    CONSTANT cnt-mask-flags  \ Bits N-F..N-1
+1                #cbc    LSHIFT 1- CONSTANT cnt-mask-count  \ Bits 0..N-F-1
+1                #cbc    LSHIFT    CONSTANT cnt-flag-quote
+1                #cbc 1+ LSHIFT    CONSTANT cnt-flag-dot
 
                               \ Fehlerkonstanten
                               \   wenn Bit 7 gesetzt, dann nur Warnung
@@ -100,7 +106,7 @@ b/cell 2 -                CONSTANT count-bits
   2 CONSTANT enomem_char      \ Out of char memory
   3 CONSTANT e_no_sexpr       \ Argument is not a symbolic expression
   4 CONSTANT e_no_atom        \ Argument is not an atom
-  5 CONSTANT e_no_string      \ Argument is not a string
+  5 CONSTANT e_no_literal     \ Argument is not a literal
   6 CONSTANT e_no_number      \ Argument is not a number
   7 CONSTANT e_no_lexpr       \ Not a lambda expression
   8 CONSTANT e_not_bound      \ Atom is not bound
@@ -111,20 +117,216 @@ b/cell 2 -                CONSTANT count-bits
  13 CONSTANT e_misplaced_dot  \ Misplaced dot
  14 CONSTANT e_unbalanced     \ Unbalanced right parenthesis
  15 CONSTANT e_lbrace_open    \ Unbalanced left parenthesis
- 16 CONSTANT e_read_exceeded  \ Too many s-expressions (per line)
+ 16 CONSTANT e_range          \ Index out of range
  17 CONSTANT e_load_exceeded  \ Too many nested LOADs
- 18 CONSTANT e_prog_exceeded  \ Too many nested PROGs
+ 18 CONSTANT e_underflow      \ Stack underflow
  19 CONSTANT e_no_prog        \ No PROG for GO or RETURN
  20 CONSTANT e_no_label       \ Label not found
+ 21 CONSTANT e_overflow       \ Stack overflow
 128 CONSTANT warning
 129 CONSTANT w_cond_failed    \ COND fell through
 
+\ =============================================================================
+
+DEFER error                   \ error vs. reset und prin
+DEFER eval                    \ eval vs. apply
+DEFER >oblist
+
+\ =============================================================================
+
+: find-word ( -- )
+\ =========
+    BL WORD FIND
+;
+
+
+: {char} ( -- ch )
+\ =======
+    [ find-word ASCII ] 2LITERAL IF                 \ F83, F-PC
+        EXECUTE
+    ELSE
+        DROP CHAR                                   \ ANS
+    THEN
+;
+
+
+: {mu/mod} ( ud1 u1 -- u2 ud2 )
+\ ========
+    [ find-word MU/MOD ] 2LITERAL IF                \ F83, F-PC
+        EXECUTE
+    ELSE
+        DROP
+        >R 0 R@ UM/MOD R> SWAP >R UM/MOD R>
+    THEN
+;
+
+
+: {unused} ( --  u )
+\ ========
+    [ find-word UNUSED ] 2LITERAL IF
+        EXECUTE                                     \ gforth, Win32Forth
+    ELSE
+        DROP SP@ HERE -                             \ F83, F-PC
+    THEN
+;
+
+
+: {upc} ( ch -- ch )
+\ =====
+    [ find-word UPC ] 2LITERAL IF
+        EXECUTE                                     \ F83, F-PC
+    ELSE DROP [ find-word TOUPPER ] 2LITERAL IF
+        EXECUTE
+    ELSE
+        DROP
+        ABORT" fatal: neither UPC nor TOUPPER are available"
+    THEN
+    THEN
+;
+
+
+: {upper} ( c-addr u -- )
+\ =======
+    [ find-word UPPER ] 2LITERAL IF
+        EXECUTE
+    ELSE
+        DROP 0 ?DO
+            DUP I CHARS +
+            DUP C@ {upc} SWAP C!
+        LOOP
+        DROP
+    THEN
+;
+
+\ =============================================================================
+
+\ user defined 2d-array with stack functionality
+\ inspired by http://www.forth.org/svfig/Len/softstak.htm
+\
+\ +-----+--------+-------+-------------------------------------------+
+\ | ofs | name   | type  | description                               |
+\ +=====+========+=======+===========================================+
+\ | 0   | id     | char  | array id (debug)                          |
+\ +-----+--------+-------+-------------------------------------------+
+\ | 1   | cols   | char  | array width                               |
+\ +-----+--------+-------+-------------------------------------------+
+\ | 2   | rows   | cell  | array height                              |
+\ +-----+--------+-------+-------------------------------------------+
+\ | 4   | base   | cell  | stack base row                            |
+\ +-----+--------+-------+-------------------------------------------+
+\ | 6   | depth  | cell  | stack depth                               |
+\ +-----+--------+-------+-------------------------------------------+
+\ | 8.. | elems  | cells | array elements                            |
+\ +-----+--------+-------+-------------------------------------------+
+
+
+\ create a 2d-array identified by id
+: array ( id cols rows -- ) ( -- array )
+    CREATE
+       ROT C, OVER C, DUP ,
+       * 2 + CELLS HERE OVER ALLOT SWAP ERASE
+    DOES>
+;
+
+
+: acols   ( array -- n ) CHAR+ C@ ;
+: arows   ( array -- n ) [ 2 CHARS ] LITERAL + @ ;
+: abase   ( array -- n ) [ 2 CHARS CELL+ ] LITERAL + @ ;
+: adepth  ( array -- n ) [ 2 CHARS 2 CELLS + ] LITERAL + @ ;
+: acount  ( array -- n ) DUP abase SWAP adepth + ;
+
+
+: aempty? ( array -- flag ) adepth 0= ;
+: afull?  ( array -- flag ) DUP arows SWAP adepth = ;
+
+
+: a-mark ( array -- n )
+    DUP adepth SWAP 2DUP
+    [ 2 CHARS CELL+ ] LITERAL + +!
+    [ 2 CHARS 2 CELLS + ] LITERAL + 0 SWAP !
+;
+
+
+: a-unmark ( n array -- )
+    OVER NEGATE SWAP [ 2 CHARS CELL+ ] LITERAL + TUCK +!
+    CELL+ +!
+;
+
+
+: aclear ( array -- )
+    [ 2 CHARS CELL+ ] LITERAL + 2 CELLS ERASE
+;
+
+
+: a# ( col row array -- addr )
+    2DUP arows U< IF
+        ROT SWAP 2DUP acols U< IF
+            ROT OVER acols *
+            ROT + CELLS [ 2 CHARS 3 CELLS + ] LITERAL + +
+        ELSE
+            NIP NIP e_range
+        THEN
+    ELSE
+        NIP NIP e_range
+    THEN
+;
+
+
+: a@ ( col row stack -- n ) a# @ ;     \ array fetch
+: a! ( n col row stack -- ) a# ! ;     \ array store
+
+
+\ push the value n onto the stack
+: >a ( n array -- )
+    DUP afull? IF
+        NIP e_overflow error
+    ELSE
+        1 OVER [ 2 CHARS 2 CELLS + ] LITERAL + +!           \ incr
+        DUP acount 1- SWAP
+        ( n1 n2 n3 row array )
+        0 OVER acols 1- DO
+            ROT >R 2DUP R> -ROT I -ROT a!
+        -1 +LOOP
+        2DROP
+    THEN
+;
+
+
+\ pop a value from the stack
+: a> ( array -- n )
+    DUP aempty? IF
+        e_underflow error
+    ELSE
+        -1 OVER [ 2 CHARS 2 CELLS + ] LITERAL + +!          \ decr
+        DUP acount SWAP
+        DUP acols 0 DO
+            2DUP I -ROT a@ -ROT
+        LOOP
+        2DROP
+    THEN
+;
+
+
+\ fetch the top element from the user stack
+: atop ( col array -- n )
+    DUP acols 1 = IF 0 SWAP THEN
+    DUP aempty? IF
+        NIP e_underflow error
+    ELSE
+        DUP acount 1- SWAP a@
+    THEN
+;
+
+\ =============================================================================
 
 CREATE mem_node #nodes sizeof_node * ALLOT  \ Listen-Speicher erzeugen
-CREATE mem_char num_chars    CHARS   ALLOT  \ Objekt-Speicher erzeugen
-CREATE mem_read read-depth 1 CELLS * ALLOT  \ READ-Stack erzeugen
-CREATE mem_load load-depth 1 CELLS * ALLOT  \ LOAD-Stack erzeugen
-CREATE mem_prog #progs     3 CELLS * ALLOT  \ PROG-Stack erzeugen
+CREATE mem_char #chars CHARS         ALLOT  \ Objekt-Speicher erzeugen
+
+{char} R 1 #read  array read_stack          \ READ-Stack erzeugen
+{char} L 1 #load  array load_stack          \ LOAD-Stack erzeugen
+{char} P 3 #progs array prog_stack          \ PROG-Stack erzeugen
+{char} E 1 #expr  array expr_stack          \ EXPR-Stack erzeugen
+
 
 CREATE tstate
 0 C,                            \ first,    Anfangsposition
@@ -134,7 +336,7 @@ tlen 1+ CHARS ALLOT             \ buffer,   Puffer, 1 Zeichen mehr fuer CONVERT
 
 
                                 \ Konfiguration (dynamisch)
-VARIABLE notation               \ Dot Notation (0) oder List Notation (<> 0)
+VARIABLE  notation              \ Dot Notation (0) oder List Notation (<> 0)
                                 \ Wenn List Notation, dann Separator, z.B.
                                 \ Leerzeichen (BL) oder Komma (44)
 
@@ -142,32 +344,25 @@ VARIABLE notation               \ Dot Notation (0) oder List Notation (<> 0)
 VARIABLE  freelist              \ Zeiger auf das erste freie Zellenpaar
 VARIABLE  len_char              \ Aktuelle Groesse des Objektspeichers
 VARIABLE  num_lbrace            \ Anzahl der offenen linken runden Klammern
-VARIABLE  read-base
-VARIABLE  num_read              \ Anzahl der gelesenen S-Ausdruecke
 VARIABLE  running               \ Flag, ob TLISP laeuft
 VARIABLE  rp_save               \ Merker des Return-Stack-Pointers (reset)
 VARIABLE  rp_max                \ Maximale Return-Stack-Ausnutzung (EVAL, GC)
-VARIABLE  load-level            \ Aktuelle LOAD-Verschachtelungstiefe
-VARIABLE  prog-level            \ Aktuelle PROG-Verschachtelungstiefe
+VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
 2VARIABLE gensym-num            \ Aktueller GENSYM-Zaehler
 
 
-DEFER error                     \ error vs. reset und prin
-DEFER eval                      \ eval vs. apply
-DEFER >oblist
-
-
-: (car) ( sexpr -- head ) [ gc-used INVERT ] LITERAL AND mem_node +       @ ;
-:  cdr  ( sexpr -- tail ) [ gc-used INVERT ] LITERAL AND mem_node + CELL+ @ ;
-
-
-: (rplaca) ( sexpr newhead -- sexpr ) OVER mem_node + ! ;
-
-
-: (rplacd) ( sexpr newtail -- sexpr )
+: gc-clear  ( sexpr -- sexpr )
 \ ========
-    OVER [ gc-used INVERT ] LITERAL AND mem_node + CELL+ !
+    [ gc-used INVERT ] LITERAL AND
 ;
+
+
+: (car)  ( sexpr -- head ) gc-clear mem_node +       @ ;
+:  cdr   ( sexpr -- tail ) gc-clear mem_node + CELL+ @ ;
+
+
+: (rplaca)  ( sexpr newhead -- sexpr ) OVER gc-clear mem_node +       ! ;
+: (rplacd)  ( sexpr newtail -- sexpr ) OVER gc-clear mem_node + CELL+ ! ;
 
 
 : null  ( sexpr -- flag ) nil =  ;      \ alternativ: 0=
@@ -182,11 +377,8 @@ DEFER >oblist
     [ #nodes 1- sizeof_node * ] LITERAL nil (rplacd) DROP
     0 freelist !
     0 len_char !
-    0 read-base !
-    0 num_read !
     0 rp_max !
-    0 load-level !
-    0 prog-level !
+    0 sp_max !
     0. gensym-num 2!
     BL notation !
 ; init
@@ -207,7 +399,7 @@ DEFER >oblist
 
 
 1 CONSTANT type-symbol      \ counted string
-2 CONSTANT type-string      \ counted string
+2 CONSTANT type-string      \ counted string, Ausgabe mit Anfuehrungszeichen
 3 CONSTANT type-number      \ single precision, signed
 4 CONSTANT type-code        \ attr + cfa
 
@@ -217,11 +409,11 @@ DEFER >oblist
     CHAR+                   \ Platz fuer den Objekttyp (type) reservieren
     len_char @              \ Naechste freie Speicheradresse ermitteln
     TUCK +                  \ Neue Groesse des Objektspeichers ermitteln
-    DUP num_chars U> IF
+    DUP #chars U> IF
         2DROP nil
     ELSE
         len_char !
-        mem_char +
+        mem_char CHARS +
         TUCK C!             \ type
     THEN
 ;
@@ -236,7 +428,7 @@ DEFER >oblist
 
 : atom? ( sexpr -- flag )     \ liefert TRUE, wenn Atomknoten, sonst FALSE
 \ =====
-    (car) DUP mem_char U>= SWAP mem_char num_chars CHARS + U< AND
+    (car) DUP mem_char U>= SWAP mem_char #chars CHARS + U< AND
 ;
 
 
@@ -252,16 +444,6 @@ DEFER >oblist
 ;                               \ die leere Liste
 
 
-: literal? ( sexpr -- flag )    \ liefert TRUE, wenn Literalatom, sonst FALSE
-\ ========
-    DUP atom? IF
-        (car) C@ DUP type-symbol = SWAP type-string = OR
-    ELSE
-        DROP FALSE
-    THEN
-;
-
-
 : symbolp ( sexpr -- flag )     \ liefert TRUE, wenn Symbol, sonst FALSE
 \ =======
     DUP atom? IF (car) C@ type-symbol = ELSE DROP FALSE THEN
@@ -271,6 +453,12 @@ DEFER >oblist
 : stringp ( sexpr -- flag )     \ liefert TRUE, wenn Zeichenkette, sonst FALSE
 \ =======
     DUP atom? IF (car) C@ type-string = ELSE DROP FALSE THEN
+;
+
+
+: literal? ( sexpr -- flag )    \ liefert TRUE, wenn Literalatom, sonst FALSE
+\ ========
+    DUP symbolp SWAP stringp OR
 ;
 
 
@@ -321,61 +509,6 @@ DEFER >oblist
         >oblist
     ELSE
         enomem_char error
-    THEN
-;
-
-
-: find-word ( -- )
-\ =========
-    BL WORD FIND
-;
-
-
-: {mu/mod} ( ud1 u1 -- u2 ud2 )
-\ ========
-    [ find-word MU/MOD ] 2LITERAL IF                \ F83
-        EXECUTE
-    ELSE
-        DROP
-        >R 0 R@ UM/MOD R> SWAP >R UM/MOD R>
-    THEN
-;
-
-
-: {unused} ( --  u )
-\ ========
-    [ find-word UNUSED ] 2LITERAL IF
-        EXECUTE                         \ gforth, Win32Forth
-    ELSE
-        DROP SP@ HERE -                 \ F83, F-PC
-    THEN
-;
-
-
-: {upc} ( ch -- ch )
-\ =====
-    [ find-word UPC ] 2LITERAL IF
-        EXECUTE
-    ELSE DROP [ find-word TOUPPER ] 2LITERAL IF
-        EXECUTE
-    ELSE
-        DROP
-        ABORT" fatal: neither UPC nor TOUPPER are available"
-    THEN
-    THEN
-;
-
-
-: {upper} ( c-addr u -- )
-\ =======
-    [ find-word UPPER ] 2LITERAL IF
-        EXECUTE
-    ELSE
-        DROP 0 ?DO
-            DUP I CHARS +
-            DUP C@ {upc} SWAP C!
-        LOOP
-        DROP
     THEN
 ;
 
@@ -463,15 +596,16 @@ DEFER >oblist
 ;
 
 
-: update_rp_max ( -- )
-\ =============
+: update_max ( -- )
+\ ==========
     rdepth DUP rp_max @ U> IF rp_max ! ELSE DROP THEN
+    depth  DUP sp_max @ U> IF sp_max ! ELSE DROP THEN
 ;
 
 
-: pair ( x y -- p )
-\ =====
-    update_rp_max
+: pair ( x y -- p )       \ zip
+\ ====
+    update_max
     2DUP null SWAP null OR IF
         2DROP nil
     ELSE
@@ -483,51 +617,12 @@ DEFER >oblist
 ;
 
 
-: pair2 ( x y -- p )
-\ ====
-    nil nil 2SWAP
-    BEGIN
-        2DUP (list?) SWAP (list?) AND
-    WHILE
-        2DUP
-        SWAP car SWAP car cons nil cons
-        ROT cdr ROT cdr
-        4 ROLL DUP null IF
-            DROP 3 ROLL DROP ROT DUP
-        ELSE
-            4 ROLL 4 ROLL TUCK rplacd DROP
-        THEN
-        2SWAP
-    REPEAT
-    2DROP DROP
-;
-
-
 : append ( x y -- xy )
-\ =======
-    update_rp_max
+\ ======
+    update_max
     SWAP ?DUP IF
         DUP car SWAP cdr ROT RECURSE cons
     THEN
-;
-
-
-: append2 ( x y -- xy )
-\ ======
-    nil nil 2SWAP SWAP
-    BEGIN
-        DUP (list?)
-    WHILE
-        DUP cdr SWAP car nil cons
-        4 ROLL DUP null IF
-            DROP 3 ROLL DROP DUP
-        ELSE
-            4 ROLL ROT TUCK rplacd DROP
-        THEN
-        2SWAP
-    REPEAT
-    DROP
-    OVER null IF NIP NIP ELSE rplacd DROP THEN
 ;
 
 
@@ -552,7 +647,7 @@ new-symbol APVAL  CONSTANT $apval
 $apval DUP DUP    putprop DROP
 nil    DUP $apval putprop DROP
 
-\ NIL, APVAL und OBLIST in die Objektliste eintragen
+\ NIL, APVAL und OBLIST in dieser Reihenfolge in die Objektliste eintragen
 $oblist nil $apval $oblist nil cons cons cons $apval putprop DROP
 
 
@@ -566,6 +661,7 @@ new-symbol T         DUP $apval putprop CONSTANT $t
 new-symbol SUBR                         CONSTANT $subr
 new-symbol STOP                         CONSTANT $stop
 new-symbol QUOTE                        CONSTANT $quote
+new-symbol PAUSE                        CONSTANT $pause
 new-symbol LAMBDA    DUP $apval putprop CONSTANT $lambda
 new-symbol GC                           CONSTANT $gc
 new-symbol FUNARG                       CONSTANT $funarg
@@ -581,8 +677,9 @@ new-symbol DEBUG                        CONSTANT $debug
 new-symbol CONFIG                       CONSTANT $config
 
 
+$config nil $pause     putprop DROP     \ Einzelschritt-Debugging ein/AUS
 $config $t  $gc        putprop DROP     \ Garbage Collection (GC) EIN/aus
-$config $t  $exit      putprop DROP     \ BYE nach EXIT ein/AUS
+$config $t  $exit      putprop DROP     \ BYE nach EXIT EIN/aus
 $config nil $evalquote putprop DROP     \ EVALQUOTE ein/AUS
 $config nil $echo      putprop DROP     \ Echo ein/AUS
 $config nil $debug     putprop DROP     \ Debug-Ausgaben ein/AUS
@@ -595,18 +692,27 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: free ( -- u )
+: pause ( -- )
+\ ===========
+    $pause enabled? IF
+        ." Press any key to continue..." KEY DROP CR
+    THEN
+;
+
+
+: free ( -- flag )
 \ ====
-    CR ." Code: " {unused} U. ." bytes unused, rp_max=" rp_max @ U. CR
+    CR ." Code: " {unused} U. ." bytes unused, rp_max=" rp_max @ U. bs EMIT
+                                          ." , sp_max=" sp_max @ U. CR
     ." Node: "
     freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN
     DUP 4 U.R ."  nodes used, " #nodes OVER - 4 U.R ."  / " #nodes 4 U.R
          ."  nodes free (" 100 100 ROT #nodes */ - 2 U.R ." %)" CR
     ." Char: "
     len_char @
-    DUP 4 U.R ."  bytes used, " num_chars OVER - 4 U.R ."  / " num_chars 4 U.R
-         ."  bytes free (" 100 100 ROT num_chars */ - 2 U.R ." %)" CR
-    nil
+    DUP 4 U.R ."  bytes used, " #chars OVER - 4 U.R ."  / " #chars 4 U.R
+         ."  bytes free (" 100 100 ROT #chars */ - 2 U.R ." %)" CR
+    TRUE
 ;
 
 
@@ -614,8 +720,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 \ ========
     type-code [ 1 CHARS CELL+ ] LITERAL (new-object)
     ?DUP IF
-        TUCK [ 1 CHARS ] LITERAL + C!       \ attr (i.e. arity)
-        TUCK [ 2 CHARS ] LITERAL +  !       \ cfa
+        TUCK CHAR+ C!                       \ attr (i.e. arity)
+        TUCK [ 2 CHARS ] LITERAL + !        \ cfa
         nil cons
         SWAP putprop DROP
     THEN
@@ -680,7 +786,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     ELSE
         DROP type-number CELL (new-object)
         ?DUP IF
-            TUCK [ 1 CHARS ] LITERAL + !
+            TUCK CHAR+ !
             nil cons
             >oblist
         THEN
@@ -706,8 +812,11 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             DROP ." @CODE"
             $debug enabled? IF
                 DUP (car) CHAR+ DUP CHAR+ @
-                ." [" >NAME .ID 8 EMIT [CHAR] / EMIT
-                C@ subr-arity AND 0 U.R ." ]"
+                [CHAR] [ EMIT
+                >NAME .ID bs EMIT
+                [CHAR] / EMIT
+                C@ subr-arity AND 0 U.R
+                [CHAR] ] EMIT
             THEN
         ELSE
             e_unknown_type error
@@ -748,10 +857,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     DUP atom? IF
         prin1
     ELSE
-        ." ("
+        [CHAR] ( EMIT
         notation @ 0= IF                \ dot notation
             DUP car RECURSE DROP
-            ."  . "
+            SPACE [CHAR] . EMIT SPACE
             DUP cdr RECURSE DROP
         ELSE                            \ list notation
             DUP
@@ -762,7 +871,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 cdr
                 DUP nil<> IF
                     DUP atom? IF
-                        ."  . " prin1
+                        SPACE [CHAR] . EMIT SPACE prin1
                     ELSE
                         notation @ DUP EMIT BL <> IF SPACE THEN
                     THEN
@@ -770,7 +879,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             REPEAT
             DROP
         THEN
-        ." )"
+        [CHAR] ) EMIT
     THEN
     wrap    \ fuer F-PC 3.60
 ;
@@ -791,8 +900,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : assoc ( atom sexpr -- sexpr )
 \ =====
+    update_max
     $debug enabled? IF
-        .indent ." searching " OVER prin DROP ."  in " print
+        .indent ." assoc" cr ." assoc: searching " OVER prin DROP ."  in " print
+        pause
     THEN
     BEGIN
         DUP atom? IF TRUE ELSE DUP car atom? THEN IF
@@ -827,70 +938,38 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 2 CONSTANT prog-rp-eval
 
 
-: prog-addr ( ix -- addr )
-\ =========
-    CELLS mem_prog prog-level @ 1- [ 3 CELLS ] LITERAL * + +
-;
-
-
-: prog-push ( sp rp -- flag )
-\ =========
-    prog-level @ #progs U< DUP IF
-        1 prog-level +!
-        -ROT
-        prog-rp prog-addr !
-        prog-sp prog-addr !
-    ELSE
-        NIP NIP
-    THEN
-;
-
-
-: prog-pop ( -- )
-\ ========
-    -1 prog-level +!
-;
-
-
-: prog? ( -- flag )
-\ =====
-    prog-level @ 0<>
-;
-
-
 : prog-eval ( sexpr env -- sexpr )
 \ =========
-    RP@ prog-rp-eval prog-addr !
+    RP@ prog-rp-eval prog_stack DUP adepth 1- SWAP a!
     eval
 ;
 
 
 : prog-go ( argl ali -- prog ali sub nil )
 \ =======
-    prog? IF
+    prog_stack aempty? IF
+        e_no_prog error
+    ELSE
         >R car >R
-        prog-sp prog-addr @ SP! DROP
+        prog-sp prog_stack atop SP! DROP
         R> 2DUP SWAP member ?DUP IF
             NIP R>
             SWAP nil
-            prog-rp-eval prog-addr @ RP!
+            prog-rp-eval prog_stack atop RP!
         ELSE
             e_no_label error
         THEN
-    ELSE
-        e_no_prog error
     THEN
 ;
 
 
 : prog-return ( sexpr -- sexpr )
 \ ===========
-    prog? IF
-        >R prog-sp prog-addr @ SP! 2DROP R>
-        prog-rp prog-addr @ RP!
-        prog-pop
-    ELSE
+    prog_stack aempty? IF
         e_no_prog error
+    ELSE
+        prog_stack a> DROP RP!
+        SWAP >R SP! 2DROP R>
     THEN
 ;
 
@@ -898,6 +977,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : prog ( argl ali -- sexpr )
 \ ====
     \ PROG-Parameter mit NIL initialisieren
+    \ und der A-Liste voranstellen
     OVER car ?DUP IF
         DUP length >R
         R@ 0 DO nil  LOOP nil
@@ -906,22 +986,19 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     THEN
 
     \ PROG-Programm durchlaufen
-    SP@ RP@ prog-push IF
-        OVER cdr
-        BEGIN
-            DUP nil<>
-        WHILE
-            DUP car DUP (list?) IF
-                2 PICK prog-eval
-            THEN
-            DROP
-            cdr
-        REPEAT
-        NIP NIP
-        prog-pop
-    ELSE
-        e_prog_exceeded error
-    THEN
+    SP@ RP@ 0 prog_stack >a
+    OVER cdr
+    BEGIN
+        DUP nil<>
+    WHILE
+        DUP car DUP (list?) IF
+            2 PICK prog-eval
+        THEN
+        DROP
+        cdr
+    REPEAT
+    NIP NIP
+    prog_stack a> 2DROP DROP
 ;
 
 
@@ -931,7 +1008,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         .indent ." exec: " OVER prin DROP SPACE print
     THEN
     SWAP (car) DUP -ROT DUP >R
-    1+ C@ subr-arity AND 0 ?DO
+    CHAR+ C@ subr-arity AND 0 ?DO
         DUP atom? IF e_too_few_args error LEAVE ELSE DUP car THEN
         SWAP cdr
     LOOP
@@ -939,7 +1016,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         e_too_many_args error
     ELSE
         [ 2 CHARS ] LITERAL + @ EXECUTE
-        SWAP 1+ C@ subr-ret AND DUP ret-number = IF
+        SWAP CHAR+ C@ subr-ret AND DUP ret-number = IF
             DROP new-number
         ELSE DUP ret-bool = IF
             DROP IF $t ELSE nil THEN   \ convert Forth's TRUE to Lisp's T
@@ -980,7 +1057,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : cxr ( atom args -- sexpr )
 \ ===
     DUP length 1 1 check-args IF
-        car SWAP (car) CHAR+ COUNT 2 - 1 SWAP DO
+        car SWAP (car) CHAR+ COUNT 2 CHARS - 1 SWAP DO
             TUCK I CHARS + C@
             [CHAR] A = IF car ELSE cdr THEN
             SWAP
@@ -1012,7 +1089,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 ELSE DUP 2 PICK assoc ?DUP IF
                     NIP cdr                         \ APPLY statt EVAL
                 ELSE
-                    e_no_lexpr error
+                    e_no_lexpr error LEAVE
                 THEN
                 THEN
                 THEN
@@ -1032,7 +1109,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 ROT SWAP 3 ROLL SWAP bind
                 eval                        \ ggf. APPLY statt EVAL
             ELSE
-                e_no_lexpr error
+                e_no_lexpr error LEAVE
             THEN
             THEN
             TRUE
@@ -1048,7 +1125,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     THEN
     BEGIN
         OVER null IF
-            DROP prog? INVERT IF w_cond_failed error THEN
+            DROP prog_stack aempty? IF w_cond_failed error LEAVE THEN
             TRUE
         ELSE OVER car car OVER eval IF
             SWAP car cdr car SWAP eval TRUE
@@ -1096,10 +1173,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : (eval) ( sexpr env -- sexpr )
 \ ======
+    update_max
     $debug enabled? IF
         .indent ." eval: " SWAP prin SWAP SPACE print
     THEN
-    update_rp_max
     OVER atom? IF
         OVER numberp IF
             DROP
@@ -1134,37 +1211,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ' (eval) IS eval
 
 
-: load-fd ( -- addr )
-\ =======
-    mem_load load-level @ 1- CELLS +
-;
-
-
-: load-push ( fd -- flag )
-\ =========
-    load-level @ load-depth U< TUCK IF
-        1 load-level +!
-        load-fd !
-    ELSE
-        DROP
-    THEN
-;
-
-
-: load-pop ( -- fd )
-\ ========
-    load-fd @
-    -1 load-level +!
-;
-
-
 : tgetline ( -- u flag )
 \ ========
     tstate 3 CHARS + tlen
-    load-level @ 0= IF
+    load_stack aempty? IF
         ACCEPT TRUE CR
     ELSE
-        load-fd @ READ-LINE THROW
+        load_stack atop READ-LINE THROW
     THEN
 ;
 
@@ -1209,10 +1262,11 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 2 CONSTANT token-nl         \ new line
 3 CONSTANT token-lbrace     \ left brace (
 4 CONSTANT token-rbrace     \ right brace )
-5 CONSTANT token-dot        \ dot .
-6 CONSTANT token-quote      \ quote
-7 CONSTANT token-atom       \ atom
-8 CONSTANT token-string     \ string
+5 CONSTANT token-sbrace     \ right bracket ] (aka super parenthesis)
+6 CONSTANT token-dot        \ dot .
+7 CONSTANT token-quote      \ quote '
+8 CONSTANT token-atom       \ atom
+9 CONSTANT token-string     \ string
 
 
 : token ( -- token )        \ Scanner (Lexikalische Analyse)
@@ -1226,7 +1280,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 token-nl tclear
             ELSE
                 tstate DUP C@ 3 + CHARS + C@ [CHAR] " = IF
-                    e_rquote_missing error
+                    e_rquote_missing error LEAVE
                 ELSE
                     token-atom
                 THEN
@@ -1238,12 +1292,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             tstate DUP CHAR+ C@ 1- SWAP C@ = IF
                 CASE [CHAR] ( OF token-lbrace    ENDOF
                      [CHAR] ) OF token-rbrace    ENDOF
+                     [CHAR] ] OF token-sbrace    ENDOF
                      [CHAR] . OF token-dot       ENDOF
                      [CHAR] ' OF token-quote     ENDOF
                      BL       OF 0 tnext         ENDOF
                      tab      OF 0 tnext         ENDOF
                      [CHAR] , OF 0 tnext         ENDOF
-                     [CHAR] ; OF token-nl tclear ENDOF
+                     [CHAR] ; OF token-nl tclear ENDOF  \ line comment
                                  0 SWAP
                 ENDCASE
             ELSE
@@ -1252,8 +1307,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 ELSE
                     DUP BL = OVER tab      = OR
                              OVER [CHAR] , = OR
+                             OVER [CHAR] ; = OR
+                             OVER [CHAR] ( = OR
                              OVER [CHAR] ) = OR
-                             OVER [CHAR] ( = OR SWAP 0= OR IF
+                             OVER [CHAR] ] = OR SWAP 0= OR IF
                         tundo token-atom
                     ELSE
                         0
@@ -1269,7 +1326,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : count++ ( count -- count )
 \ =======
-    DUP count-mask AND 1+ SWAP count-flags AND OR
+    DUP  cnt-mask-count AND 1+      \ Zaehler erhoehen
+    SWAP cnt-mask-flags AND OR      \ und Flags uebernehmen
 ;
 
 
@@ -1283,16 +1341,37 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: handle-quote ( count -- flag )
-\ ============
-    DUP count-quote AND 0<> IF
-        lbrace--
+: handle-quotes ( -- )
+\ =============
+    BEGIN
+        expr_stack atop
+        DUP cnt-flag-quote AND 0<> IF
+            lbrace--
+            nil SWAP
+            cnt-mask-count AND 0 DO cons LOOP
+            TRUE
+        ELSE
+            DROP FALSE
+        THEN
+    WHILE
+        expr_stack a> DROP
+    REPEAT
+;
+
+
+: handle-rbrace ( -- )
+\ =============
+    lbrace--
+    expr_stack a> DUP cnt-flag-dot AND 0= IF
         nil SWAP
-        count-mask AND 0 DO cons LOOP
-        TRUE
+    ELSE cnt-mask-count AND 1 = IF
+        expr_stack a>
     ELSE
-        DROP FALSE
+        e_misplaced_dot error LEAVE
     THEN
+    THEN
+    0 ?DO CONS LOOP                     \ ggf. leere Liste
+    handle-quotes
 ;
 
 
@@ -1318,41 +1397,39 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : (read) ( -- sexpr... u )      \ Parser (Syntaxanalyse)
 \ ======
     0 num_lbrace !
-    0 >R
+    0 expr_stack >a
     BEGIN
         token
         CASE
             token-lbrace OF
-                R> count++ >R
-                0 >R
+                expr_stack a> count++ expr_stack >a
+                0 expr_stack >a
                 1 num_lbrace +!                     \ inkrementieren
                 FALSE
                 ENDOF
             token-rbrace OF
-                lbrace--                            \ dekrementieren
-                R> DUP count-dot AND 0= IF
-                    nil SWAP
-                ELSE count-mask AND 1 = IF
-                    R>
+                handle-rbrace
+                FALSE
+                ENDOF
+            token-sbrace OF
+                num_lbrace @ 0= IF
+                    e_unbalanced error LEAVE
                 ELSE
-                    e_misplaced_dot error LEAVE
+                    BEGIN num_lbrace @ 0<> WHILE handle-rbrace REPEAT
                 THEN
-                THEN
-                0 ?DO cons LOOP                     \ ggf. leere Liste
-                R@ handle-quote IF R> DROP THEN
                 FALSE
                 ENDOF
             token-dot OF
-                num_lbrace @ 0= R@ 0= OR IF
+                num_lbrace @ 0= expr_stack atop 0= OR IF
                     e_misplaced_dot error LEAVE
                 ELSE
-                    count-dot >R
+                    cnt-flag-dot expr_stack >a
                 THEN
                 FALSE
                 ENDOF
             token-quote OF
-                R> count++ >R
-                count-quote count++ >R
+                expr_stack a> count++ expr_stack >a
+                cnt-flag-quote count++ expr_stack >a
                 1 num_lbrace +!                     \ inkrementieren
                 $quote
                 FALSE
@@ -1365,71 +1442,41 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 ELSE
                     DROP 2DUP {upper} (new-symbol)
                 THEN
-                R> count++ >R
-                R@ handle-quote IF R> DROP THEN
+                expr_stack a> count++ expr_stack >a
+                handle-quotes
                 DUP $stop =
                 ENDOF
             token-string OF
                 tstate DUP C@ 4 + CHARS +           \ c-addr + 1
                 tstate CHAR+ C@ tstate C@ - 2 -     \ count  - 2
                 new-string
-                R> count++ >R
-                R@ handle-quote IF R> DROP THEN
+                expr_stack a> count++ expr_stack >a
+                handle-quotes
                 FALSE
                 ENDOF
             token-nl OF
-                num_lbrace @ 0= R@ 0> AND
+                num_lbrace @ 0= expr_stack atop 0> AND
                 ENDOF
             token-eof OF
                 num_lbrace @ ?DUP IF
-                    e_lbrace_open error
+                    e_lbrace_open error LEAVE
                 THEN
                 TRUE
                 ENDOF
             FALSE SWAP
         ENDCASE
     UNTIL
-    R>
-;
-
-
-: read-pending ( -- u )
-\ ============
-    read-base @ num_read @ +
-;
-
-
-: read-addr ( -- addr )
-\ =========
-    mem_read read-pending 1- CELLS +
-;
-
-
-: read-push ( sexpr -- )
-\ =========
-    read-pending read-depth U< IF
-        1 num_read +!
-        read-addr !
-    ELSE
-        e_read_exceeded error
-    THEN
-;
-
-
-: read-pop ( -- sexpr )
-\ ========
-    read-addr @
-    -1 num_read +!
+    expr_stack a>
 ;
 
 
 : read ( -- sexpr )
 \ ====
-    num_read @ DUP 0= IF
+    read_stack adepth DUP 0= IF
         DROP (read) DUP
-        0 ?DO SWAP read-push LOOP
+        0 ?DO SWAP read_stack >a LOOP
     THEN
-    0= IF $eof ELSE read-pop THEN
+    0= IF $eof ELSE read_stack a> THEN
     $echo enabled? IF print THEN
 ;
 
@@ -1442,13 +1489,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : gc-unmark ( sexpr -- sexpr )
 \ =========
-    DUP cdr [ gc-used INVERT ] LITERAL AND (rplacd)
+    DUP cdr gc-clear (rplacd)
 ;
 
 
 : gc-walk ( sexpr -- )
 \ =======
-    update_rp_max
+    update_max
     BEGIN
         DUP (list?)
     WHILE
@@ -1462,26 +1509,31 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: gc ( -- flag )            \ Garbage Collection
+: gc ( argl ali -- flag )            \ Garbage Collection
 \ ==
-    $gc enabled? DUP IF
-        \ Phase 1: Freelist flach durchlaufen und
+    NIP $gc enabled? TUCK IF
+
+        \ Phase 1: A-Liste rekursiv durchlaufen und
+        \          alle benutzte Zellenpaare markieren
+        gc-walk
+
+        \ Phase 2: Freelist flach durchlaufen und
         \          alle Zellenpaare als benutzt markieren
         freelist @ gc-walk
 
-        \ Phase 2: Listenspeicher rekursiv durchlaufen und
+        \ Phase 3: Listenspeicher rekursiv durchlaufen und
         \          alle ueber Atome benutzten Zellenpaare markieren
         [ #nodes sizeof_node * ] LITERAL 0 ?DO
             I atom? IF I gc-mark cdr gc-walk THEN
         sizeof_node +LOOP
 
-        \ Phase 3: READ-Stack rekursiv durchlaufen und
+        \ Phase 4: READ-Stack rekursiv durchlaufen und
         \          alle benutzte Zellenpaare markieren
-        read-pending 0 ?DO
-            mem_read I CELLS + @ gc-walk
+        read_stack acount 0 ?DO
+            0 I read_stack a@ gc-walk
         LOOP
 
-        \ Phase 4: Listenspeicher flach durchlaufen
+        \ Phase 5: Listenspeicher flach durchlaufen
         \          und unbenutzte Zellenpaare freigeben
         [ #nodes sizeof_node * ] LITERAL 0 ?DO
             I cdr gc-used AND IF
@@ -1490,6 +1542,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 I (free-node)               \ Unbenutztes Zellenpaar freigeben
             THEN
         sizeof_node +LOOP
+    ELSE
+        DROP
     THEN
 ;
 
@@ -1519,50 +1573,49 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: eval(quote) ( sexpr1 flag -- sexpr2 )
+: eval(quote) ( sexpr1 env flag -- sexpr2 )
 \ ===========
     ( flag ) IF
-        ( sexpr1 ) read nil cons cons   \ doublet vervollstaendigen
-        nil evalquote
+        SWAP read nil cons cons SWAP        \ doublet vervollstaendigen
+        evalquote
     ELSE
-        ( sexpr1 ) nil eval
+        eval
     THEN
 ;
 
 
-: (load) ( c-addr u flag -- flag )
+: (load) ( c-addr u flag env -- flag )
 \ ======
-    num_read @ DUP read-base +! 2SWAP       \ READ-Stack verschieben
-    0 num_read !
-    ." loading " 2DUP TYPE CR
-    R/O OPEN-FILE 0= DUP IF
-        OVER load-push TUCK IF
-            4 PICK nil<> IF
-                tgetline 2DROP tclear       \ skip TEST line
+    2SWAP 2DUP ." loading " TYPE CR
+    load_stack afull? IF
+        e_load_exceeded error
+    ELSE
+        read_stack a-mark -ROT                      \ READ-Stack verschieben
+        R/O OPEN-FILE 0= DUP IF
+            SWAP load_stack >a
+            2SWAP OVER nil<> IF
+                tgetline 2DROP tclear               \ skip TEST line
             THEN
             BEGIN
                 read
                 DUP $eof = OVER $stop = OR IF
                     TRUE
                 ELSE
-                    5 PICK nil<> eval(quote)
+                    OVER 3 PICK nil<> eval(quote)
                     $echo enabled? IF print THEN
                     FALSE
                 THEN
                 NIP
             UNTIL
-            ROT DROP load-pop
+            NIP
+            load_stack adepth 1 > IF nil SWAP gc THEN DROP
+            load_stack a> CLOSE-FILE THROW
         ELSE
-            DROP SWAP
+            NIP NIP NIP
         THEN
-        CLOSE-FILE THROW
-        INVERT IF e_load_exceeded error THEN
-    ELSE
-        NIP
+        SWAP read_stack a-unmark
+        tclear
     THEN
-    ROT DROP
-    SWAP DUP NEGATE read-base +! num_read !
-    tclear
 ;
 
 
@@ -1572,37 +1625,38 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: top-level       \ read-eval-print (repl)
+: top-level ( env -- )      \ read-eval-print loop (repl)
 \ =========
     BEGIN
         running @
     WHILE
-        num_read @ 0= IF .prompt THEN           \ prompt
+        read_stack aempty? IF .prompt THEN      \ prompt
         read                                    \ read
-        $evalquote enabled? eval(quote)         \ eval
+        OVER $evalquote enabled? eval(quote)    \ eval
         running @ IF print THEN DROP            \ print
-        gc DROP                                 \ gc
+        nil OVER gc DROP                        \ gc
     REPEAT
+    DROP
     $exit enabled? IF BYE THEN
 ;
 
 
 : reset ( --- )
 \ =====
-    BEGIN                   \ reset LOAD
-        load-level @ 0<>
+    BEGIN                           \ reset LOAD
+        load_stack aempty? INVERT
     WHILE
-        load-pop CLOSE-FILE THROW
+        load_stack a> CLOSE-FILE THROW
     REPEAT
-    0 prog-level !          \ reset PROG
+    prog_stack aclear               \ reset PROG
     running @ IF
-        tclear              \ reset scanner
-        0 read-base !       \ reset parser
-        0 num_read !
-        SP0 @ SP!           \ reset data stack (clearstack)
-        rp_save @ RP!       \ reset return stack
-        gc DROP             \ garbage collection
-        top-level
+        tclear                      \ reset scanner
+        read_stack aclear           \ reset parser
+        expr_stack aclear
+        SP0 @ SP!                   \ reset data stack (clearstack)
+        rp_save @ RP!               \ reset return stack
+        nil nil gc DROP             \ garbage collection
+        nil top-level
     THEN
 ;
 
@@ -1615,7 +1669,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
          e_no_sexpr       OF ." Argument is not a symbolic expression: "
                                                            SWAP prin DROP ENDOF
          e_no_atom        OF ." Argument is not an atom: " SWAP prin DROP ENDOF
-         e_no_string      OF ." Argument is not a string."                ENDOF
+         e_no_literal     OF ." Argument is not a literal."               ENDOF
          e_no_number      OF ." Argument is not a number."                ENDOF
          e_no_lexpr       OF ." Not a lambda expression: " SWAP prin DROP ENDOF
          e_not_bound      OF ." Atom is not bound: "       SWAP prin DROP ENDOF
@@ -1626,9 +1680,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
          e_misplaced_dot  OF ." Misplaced dot."                           ENDOF
          e_lbrace_open    OF ." Unbalanced left parenthesis."             ENDOF
          e_unbalanced     OF ." Unbalanced right parenthesis."            ENDOF
-         e_read_exceeded  OF ." Too many s-expressions (per line)."       ENDOF
+         e_range          OF ." Index out of range: "        SWAP C@ EMIT ENDOF
+         e_underflow      OF ." Stack underflow: "           SWAP C@ EMIT ENDOF
+         e_overflow       OF ." Stack overflow: "            SWAP C@ EMIT ENDOF
          e_load_exceeded  OF ." Too many nested LOADs."                   ENDOF
-         e_prog_exceeded  OF ." Too many nested PROGs."                   ENDOF
          e_no_prog        OF ." No PROG for GO or RETURN."                ENDOF
          e_no_label       OF ." Label not found: "         SWAP prin DROP ENDOF
          w_cond_failed    OF ." COND fell through."                       ENDOF
@@ -1645,7 +1700,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.2 ref 2016-01-31"
+    CR ." TinyLISP Version 0.3 ref 2016-07-19"
     CR ." Copyright (C) 1987-2016 Steffen Hieber"
     CR CR
 ;
@@ -1656,7 +1711,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     RP@ rp_save !
     running ON
     .hello
-    S" tlisp.lsp" nil (load) IF gc DROP THEN CR
+    S" tlisp.lsp" nil nil (load) DROP CR
     DEPTH 0= IF reset ELSE ." Data stack is not empty!" CR THEN
 ;
 
@@ -1769,8 +1824,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : >digit ( u -- char )
 \ ======
-    DUP 10 < IF [CHAR] 0 ELSE [CHAR] A 10 - THEN +
-\   [ CHAR A 10 - ] LITERAL geht wegen deferred Wort CHAR in F83 nicht
+    DUP 10 < IF [CHAR] 0 ELSE [ {char} A 10 - ] LITERAL THEN +
 ;
 
 
@@ -1791,14 +1845,14 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     SWAP DUP length DUP 1 2 check-args IF
         OVER car 3 PICK eval
         SWAP 1 = IF
-            NIP NIP nil
+            NIP nil
         ELSE
-            SWAP cdr car ROT eval
+            SWAP cdr car 2 PICK eval
         THEN
         SWAP DUP literal? IF
-            (car) CHAR+ COUNT ROT (load)
+            (car) CHAR+ COUNT ROT 3 PICK (load) NIP
         ELSE
-            e_no_string error
+            e_no_literal error
         THEN
     THEN
 ;
@@ -1903,7 +1957,7 @@ new-symbol GREATERP   $subr  ' greaterp        ret-bool   2 OR new-subr
 new-symbol GO         $fsubr ' prog-go                    2    new-subr
 new-symbol GET        $subr  ' get                        2    new-subr
 new-symbol GENSYM     $subr  ' gensym                     0    new-subr
-$gc                   $subr  ' gc              ret-bool   0 OR new-subr
+$gc                   $fsubr ' gc              ret-bool   2 OR new-subr
 new-symbol FUNCTION   $fsubr ' function                   2    new-subr
 new-symbol FREE       $subr  ' free            ret-bool   0 OR new-subr
 $exit                 $subr  ' exitf                      0    new-subr

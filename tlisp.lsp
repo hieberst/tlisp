@@ -9,9 +9,11 @@
 	EXPR)
 
 (DEFLIST '((DEFINE (LAMBDA (X)   (DEFLIST X EXPR)))
-           (CSET   (LAMBDA (X Y) (PUTPROP X Y APVAL)))
-           (DEBUG  (LAMBDA (X)   (PUTPROP 'CONFIG X 'DEBUG)))
-           (ECHO   (LAMBDA (X)   (PUTPROP 'CONFIG X 'ECHO))))
+           (CSET   (LAMBDA (X Y) (PUTPROP X Y APVAL))))
+         EXPR)
+
+(DEFLIST '((DEBUG  (LAMBDA (X) (PUTPROP 'CONFIG X 'DEBUG)))
+           (ECHO   (LAMBDA (X) (PUTPROP 'CONFIG X 'ECHO))))
          EXPR)
 
 (DEFINE '((DEF (LAMBDA (FN PL FORM)
@@ -22,7 +24,7 @@
 
 (DEFLIST '((DEFUN (LAMBDA (ARGL ALI)
     (CAR (DEFINE (LIST (LIST (CAR ARGL)
-                        (LIST LAMBDA (CADR ARGL) (CADDR ARGL))
+                       (LIST LAMBDA (CADR ARGL) (CADDR ARGL))
                    )))
     )))) FEXPR)
 
