@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.3 ref 2016-07-19
+\              Version 0.3 ref 2016-07-25
 \
 \        Written (w) 1987-2016 by Steffen Hieber
 \
@@ -664,6 +664,7 @@ new-symbol QUOTE                        CONSTANT $quote
 new-symbol PAUSE                        CONSTANT $pause
 new-symbol LAMBDA    DUP $apval putprop CONSTANT $lambda
 new-symbol GC                           CONSTANT $gc
+new-symbol FUNCTION                     CONSTANT $function
 new-symbol FUNARG                       CONSTANT $funarg
 new-symbol FSUBR                        CONSTANT $fsubr
 new-symbol FEXPR     DUP $apval putprop CONSTANT $fexpr
@@ -1097,22 +1098,16 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             THEN
             THEN
             THEN
-        ELSE
-            DUP car $lambda = IF
-                cdr DUP car 3 ROLL 3 ROLL bind
-                SWAP cdr car SWAP eval
-            ELSE DUP car $funarg = IF
-                NIP cdr
-                DUP car DUP car             \ params
-                SWAP cdr car                \ body
-                ROT cdr car                 \ env
-                ROT SWAP 3 ROLL SWAP bind
-                eval                        \ ggf. APPLY statt EVAL
-            ELSE
-                e_no_lexpr error LEAVE
-            THEN
-            THEN
+        ELSE DUP car $lambda = IF
+            cdr DUP car 3 ROLL 3 ROLL bind
+            SWAP cdr car SWAP eval
             TRUE
+        ELSE DUP car $funarg = IF
+            NIP cdr DUP cdr car SWAP car FALSE
+        ELSE
+            e_no_lexpr error LEAVE
+        THEN
+        THEN
         THEN
     UNTIL
 ;
@@ -1258,15 +1253,21 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-1 CONSTANT token-eof        \ end of file
-2 CONSTANT token-nl         \ new line
-3 CONSTANT token-lbrace     \ left brace (
-4 CONSTANT token-rbrace     \ right brace )
-5 CONSTANT token-sbrace     \ right bracket ] (aka super parenthesis)
-6 CONSTANT token-dot        \ dot .
-7 CONSTANT token-quote      \ quote '
-8 CONSTANT token-atom       \ atom
-9 CONSTANT token-string     \ string
+ 1 CONSTANT token-eof       \ end of file
+ 2 CONSTANT token-nl        \ new line
+ 3 CONSTANT token-lbrace    \ left brace (
+ 4 CONSTANT token-rbrace    \ right brace )
+ 5 CONSTANT token-sbrace    \ right bracket ] (aka super parenthesis)
+ 6 CONSTANT token-dot       \ dot .
+ 7 CONSTANT token-quote     \ quote '
+ 8 CONSTANT token-function  \ function quote #'
+ 9 CONSTANT token-atom      \ atom
+10 CONSTANT token-string    \ string
+
+
+: handle-sharp ( char -- token )
+    readc [CHAR] ' = IF token-function ELSE tundo 0 THEN
+;
 
 
 : token ( -- token )        \ Scanner (Lexikalische Analyse)
@@ -1295,6 +1296,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                      [CHAR] ] OF token-sbrace    ENDOF
                      [CHAR] . OF token-dot       ENDOF
                      [CHAR] ' OF token-quote     ENDOF
+                     [CHAR] # OF handle-sharp    ENDOF
                      BL       OF 0 tnext         ENDOF
                      tab      OF 0 tnext         ENDOF
                      [CHAR] , OF 0 tnext         ENDOF
@@ -1341,6 +1343,14 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
+: quote-start ( -- )
+\ ===========
+    expr_stack a> count++ expr_stack >a
+    cnt-flag-quote count++ expr_stack >a
+    1 num_lbrace +!                             \ inkrementieren
+;
+
+
 : handle-quotes ( -- )
 \ =============
     BEGIN
@@ -1370,7 +1380,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         e_misplaced_dot error LEAVE
     THEN
     THEN
-    0 ?DO CONS LOOP                     \ ggf. leere Liste
+    cnt-mask-count AND 0 ?DO cons LOOP      \ ggf. leere Liste
     handle-quotes
 ;
 
@@ -1428,11 +1438,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 FALSE
                 ENDOF
             token-quote OF
-                expr_stack a> count++ expr_stack >a
-                cnt-flag-quote count++ expr_stack >a
-                1 num_lbrace +!                     \ inkrementieren
-                $quote
-                FALSE
+                quote-start $quote FALSE
+                ENDOF
+            token-function OF
+                quote-start $function FALSE
                 ENDOF
             token-atom OF
                 tstate DUP C@ 3 + CHARS +           \ c-addr
@@ -1455,7 +1464,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 FALSE
                 ENDOF
             token-nl OF
-                num_lbrace @ 0= expr_stack atop 0> AND
+                num_lbrace @ 0=
+                expr_stack atop cnt-mask-count AND 0> AND
                 ENDOF
             token-eof OF
                 num_lbrace @ ?DUP IF
@@ -1466,7 +1476,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             FALSE SWAP
         ENDCASE
     UNTIL
-    expr_stack a>
+    expr_stack a> cnt-mask-count AND
 ;
 
 
@@ -1700,7 +1710,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.3 ref 2016-07-19"
+    CR ." TinyLISP Version 0.3 ref 2016-07-25"
     CR ." Copyright (C) 1987-2016 Steffen Hieber"
     CR CR
 ;
@@ -1810,14 +1820,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : function ( argl ali -- sexpr )
 \ ========
     SWAP DUP length 1 1 check-args IF
-        car DUP atom? IF
-            $expr get
-        THEN
-        DUP car $lambda <> IF
-            e_no_lexpr error
-        ELSE
-            cdr SWAP $funarg -ROT nil cons cons cons
-        THEN
+        car SWAP $funarg -ROT nil cons cons cons
     THEN
 ;
 
@@ -1958,7 +1961,7 @@ new-symbol GO         $fsubr ' prog-go                    2    new-subr
 new-symbol GET        $subr  ' get                        2    new-subr
 new-symbol GENSYM     $subr  ' gensym                     0    new-subr
 $gc                   $fsubr ' gc              ret-bool   2 OR new-subr
-new-symbol FUNCTION   $fsubr ' function                   2    new-subr
+$function             $fsubr ' function                   2    new-subr
 new-symbol FREE       $subr  ' free            ret-bool   0 OR new-subr
 $exit                 $subr  ' exitf                      0    new-subr
 $evalquote            $fsubr ' evalquote                  2    new-subr

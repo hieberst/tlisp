@@ -12,6 +12,6 @@
           (COND ((NULL LI) (RETURN NIL)))
           (SETQ P  (CAR LI))                ; Pivot
           (SETQ LI (CDR LI))
-          (SETQ L (QSORT (FILTER LI (FUNCTION (LAMBDA (X) (<=       X P))))))
-          (SETQ R (QSORT (FILTER LI (FUNCTION (LAMBDA (X) (GREATERP X P))))))
+          (SETQ L (QSORT (FILTER LI #'(LAMBDA (X) (<=       X P)))))
+          (SETQ R (QSORT (FILTER LI #'(LAMBDA (X) (GREATERP X P)))))
           (RETURN (APPEND L (CONS P R)))))
