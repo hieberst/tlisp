@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.3 ref 2016-07-25
+\              Version 0.3 ref 2016-07-30
 \
 \        Written (w) 1987-2016 by Steffen Hieber
 \
@@ -66,9 +66,13 @@ DECIMAL                       \ Zahlenbasis
 VOCABULARY tlisp        \ Vokabular TLISP anlegen
 tlisp DEFINITIONS       \ alle neuen Woerter ab jetzt in das Vokabular TLISP
 
+
+: units ( n -- m )
+    CELL 2/ DUP * *     \ 16-Bit: 2->1, 32-Bit: 4->4, 64-Bit: 8->16
+;
                               \ Konfiguration (statisch)
-1500 CELLS CONSTANT #nodes    \ Anzahl der vorhandenen Zellenpaare in MEM_NODE
-2500       CONSTANT #chars    \ Groesse des Objektspeichers MEM_CHAR in Zeichen
+3000 units CONSTANT #nodes    \ Anzahl der vorhandenen Zellenpaare in MEM_NODE
+2500 units CONSTANT #chars    \ Groesse des Objektspeichers MEM_CHAR in Zeichen
 16         CONSTANT #read     \ Groesse des READ-Stacks
 20         CONSTANT #expr     \ Groesse des EXPR-Stacks
 4          CONSTANT #load     \ Maximale LOAD-Verschachtelungstiefe (FCBS)
@@ -324,7 +328,7 @@ CREATE mem_char #chars CHARS         ALLOT  \ Objekt-Speicher erzeugen
 
 {char} R 1 #read  array read_stack          \ READ-Stack erzeugen
 {char} L 1 #load  array load_stack          \ LOAD-Stack erzeugen
-{char} P 3 #progs array prog_stack          \ PROG-Stack erzeugen
+{char} P 4 #progs array prog_stack          \ PROG-Stack erzeugen
 {char} E 1 #expr  array expr_stack          \ EXPR-Stack erzeugen
 
 
@@ -344,6 +348,7 @@ VARIABLE  notation              \ Dot Notation (0) oder List Notation (<> 0)
 VARIABLE  freelist              \ Zeiger auf das erste freie Zellenpaar
 VARIABLE  len_char              \ Aktuelle Groesse des Objektspeichers
 VARIABLE  num_lbrace            \ Anzahl der offenen linken runden Klammern
+VARIABLE  envlist               \ Zeiger auf die Liste aller A-Listen
 VARIABLE  running               \ Flag, ob TLISP laeuft
 VARIABLE  rp_save               \ Merker des Return-Stack-Pointers (reset)
 VARIABLE  rp_max                \ Maximale Return-Stack-Ausnutzung (EVAL, GC)
@@ -707,12 +712,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                                           ." , sp_max=" sp_max @ U. CR
     ." Node: "
     freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN
-    DUP 4 U.R ."  nodes used, " #nodes OVER - 4 U.R ."  / " #nodes 4 U.R
+    DUP 5 U.R ."  nodes used, " #nodes OVER - 5 U.R ."  / " #nodes 5 U.R
          ."  nodes free (" 100 100 ROT #nodes */ - 2 U.R ." %)" CR
     ." Char: "
     len_char @
-    DUP 4 U.R ."  bytes used, " #chars OVER - 4 U.R ."  / " #chars 4 U.R
+    DUP 5 U.R ."  bytes used, " #chars OVER - 5 U.R ."  / " #chars 5 U.R
          ."  bytes free (" 100 100 ROT #chars */ - 2 U.R ." %)" CR
+    ." Envs: " envlist @ length u. CR
     TRUE
 ;
 
@@ -903,7 +909,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 \ =====
     update_max
     $debug enabled? IF
-        .indent ." assoc" cr ." assoc: searching " OVER prin DROP ."  in " print
+        .indent ." assoc: searching " OVER prin DROP ."  in " print
         pause
     THEN
     BEGIN
@@ -934,9 +940,16 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-0 CONSTANT prog-sp
-1 CONSTANT prog-rp
-2 CONSTANT prog-rp-eval
+: >envlist ( env -- )
+\ ========
+    envlist @ cons envlist !
+;
+
+
+0 CONSTANT prog-env
+1 CONSTANT prog-sp
+2 CONSTANT prog-rp
+3 CONSTANT prog-rp-eval
 
 
 : prog-eval ( sexpr env -- sexpr )
@@ -952,10 +965,11 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         e_no_prog error
     ELSE
         >R car >R
-        prog-sp prog_stack atop SP! DROP
+        prog-sp prog_stack atop SP! 2DROP
         R> 2DUP SWAP member ?DUP IF
             NIP R>
             SWAP nil
+            prog-env     prog_stack atop envlist !
             prog-rp-eval prog_stack atop RP!
         ELSE
             e_no_label error
@@ -970,7 +984,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         e_no_prog error
     ELSE
         prog_stack a> DROP RP!
-        SWAP >R SP! 2DROP R>
+        SWAP cdr envlist !
+        SWAP >R SP! 2DROP DROP R>
     THEN
 ;
 
@@ -985,9 +1000,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         R> 0 DO cons LOOP
         ROT bind
     THEN
+    DUP >envlist
 
     \ PROG-Programm durchlaufen
-    SP@ RP@ 0 prog_stack >a
+    envlist @ SP@ RP@ 0 prog_stack >a
     OVER cdr
     BEGIN
         DUP nil<>
@@ -999,7 +1015,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         cdr
     REPEAT
     NIP NIP
-    prog_stack a> 2DROP DROP
+    prog_stack a> 2DROP DROP cdr envlist !
 ;
 
 
@@ -1172,6 +1188,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     $debug enabled? IF
         .indent ." eval: " SWAP prin SWAP SPACE print
     THEN
+    DUP >envlist
     OVER atom? IF
         OVER numberp IF
             DROP
@@ -1200,10 +1217,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         THEN
         apply
     THEN
-;
-
-
-' (eval) IS eval
+    envlist @ cdr envlist !
+; ' (eval) IS eval
 
 
 : tgetline ( -- u flag )
@@ -1519,29 +1534,29 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: gc ( argl ali -- flag )            \ Garbage Collection
+: gc ( -- flag )            \ Garbage Collection
 \ ==
-    NIP $gc enabled? TUCK IF
+    $gc enabled? DUP IF
 
-        \ Phase 1: A-Liste rekursiv durchlaufen und
-        \          alle benutzte Zellenpaare markieren
-        gc-walk
-
-        \ Phase 2: Freelist flach durchlaufen und
+        \ Phase 1: Freelist flach durchlaufen und
         \          alle Zellenpaare als benutzt markieren
         freelist @ gc-walk
 
-        \ Phase 3: Listenspeicher rekursiv durchlaufen und
+        \ Phase 2: Listenspeicher rekursiv durchlaufen und
         \          alle ueber Atome benutzten Zellenpaare markieren
         [ #nodes sizeof_node * ] LITERAL 0 ?DO
             I atom? IF I gc-mark cdr gc-walk THEN
         sizeof_node +LOOP
 
-        \ Phase 4: READ-Stack rekursiv durchlaufen und
+        \ Phase 3: READ-Stack rekursiv durchlaufen und
         \          alle benutzte Zellenpaare markieren
         read_stack acount 0 ?DO
             0 I read_stack a@ gc-walk
         LOOP
+
+        \ Phase 4: Liste aller A-Listen rekursiv durchlaufen und
+        \          alle benutzte Zellenpaare markieren
+        envlist @ gc-walk
 
         \ Phase 5: Listenspeicher flach durchlaufen
         \          und unbenutzte Zellenpaare freigeben
@@ -1552,8 +1567,6 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 I (free-node)               \ Unbenutztes Zellenpaar freigeben
             THEN
         sizeof_node +LOOP
-    ELSE
-        DROP
     THEN
 ;
 
@@ -1594,8 +1607,9 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: (load) ( c-addr u flag env -- flag )
+: (load) ( c-addr u flag -- flag )
 \ ======
+    nil
     2SWAP 2DUP ." loading " TYPE CR
     load_stack afull? IF
         e_load_exceeded error
@@ -1603,7 +1617,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         read_stack a-mark -ROT                      \ READ-Stack verschieben
         R/O OPEN-FILE 0= DUP IF
             SWAP load_stack >a
-            2SWAP OVER nil<> IF
+            2SWAP OVER IF
                 tgetline 2DROP tclear               \ skip TEST line
             THEN
             BEGIN
@@ -1611,14 +1625,14 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 DUP $eof = OVER $stop = OR IF
                     TRUE
                 ELSE
-                    OVER 3 PICK nil<> eval(quote)
+                    OVER 3 PICK eval(quote)
                     $echo enabled? IF print THEN
+                    gc DROP
                     FALSE
                 THEN
                 NIP
             UNTIL
-            NIP
-            load_stack adepth 1 > IF nil SWAP gc THEN DROP
+            2DROP
             load_stack a> CLOSE-FILE THROW
         ELSE
             NIP NIP NIP
@@ -1635,18 +1649,17 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: top-level ( env -- )      \ read-eval-print loop (repl)
+: top-level ( -- )      \ read-eval-print loop (repl)
 \ =========
     BEGIN
         running @
     WHILE
         read_stack aempty? IF .prompt THEN      \ prompt
         read                                    \ read
-        OVER $evalquote enabled? eval(quote)    \ eval
+        nil $evalquote enabled? eval(quote)     \ eval
         running @ IF print THEN DROP            \ print
-        nil OVER gc DROP                        \ gc
+        gc DROP                                 \ gc
     REPEAT
-    DROP
     $exit enabled? IF BYE THEN
 ;
 
@@ -1663,10 +1676,11 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         tclear                      \ reset scanner
         read_stack aclear           \ reset parser
         expr_stack aclear
+        nil envlist !               \ reset environment list
         SP0 @ SP!                   \ reset data stack (clearstack)
         rp_save @ RP!               \ reset return stack
-        nil nil gc DROP             \ garbage collection
-        nil top-level
+        gc DROP                     \ garbage collection
+        top-level
     THEN
 ;
 
@@ -1701,16 +1715,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     ENDCASE
     CR
     warning AND INVERT IF reset THEN
-;
-
-
-' (error) IS error
+; ' (error) IS error
 
 
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.3 ref 2016-07-25"
+    CR ." TinyLISP Version 0.3 ref 2016-07-30"
     CR ." Copyright (C) 1987-2016 Steffen Hieber"
     CR CR
 ;
@@ -1721,7 +1732,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     RP@ rp_save !
     running ON
     .hello
-    S" tlisp.lsp" nil nil (load) DROP CR
+    S" tlisp.lsp" FALSE (load) DROP CR
     DEPTH 0= IF reset ELSE ." Data stack is not empty!" CR THEN
 ;
 
@@ -1807,12 +1818,11 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 \ =====
     SWAP DUP length DUP 1 2 check-args IF
         1 = IF
-            car OVER
+            OVER
         ELSE
-            DUP cdr car 2 PICK (eval)   \ env
-            SWAP car ROT
+            2DUP cdr car SWAP (eval)    \ env
         THEN
-        (eval) SWAP (eval)
+        SWAP car ROT (eval) SWAP (eval)
     THEN
 ;
 
@@ -1846,14 +1856,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : load ( argl ali -- flag )
 \ ====
     SWAP DUP length DUP 1 2 check-args IF
-        OVER car 3 PICK eval
-        SWAP 1 = IF
-            NIP nil
-        ELSE
-            SWAP cdr car 2 PICK eval
-        THEN
-        SWAP DUP literal? IF
-            (car) CHAR+ COUNT ROT 3 PICK (load) NIP
+        1 = IF FALSE ELSE 2DUP cdr car SWAP eval nil<> THEN
+        -ROT car SWAP eval
+        DUP literal? IF
+            (car) CHAR+ COUNT ROT (load)
         ELSE
             e_no_literal error
         THEN
@@ -1960,7 +1966,7 @@ new-symbol GREATERP   $subr  ' greaterp        ret-bool   2 OR new-subr
 new-symbol GO         $fsubr ' prog-go                    2    new-subr
 new-symbol GET        $subr  ' get                        2    new-subr
 new-symbol GENSYM     $subr  ' gensym                     0    new-subr
-$gc                   $fsubr ' gc              ret-bool   2 OR new-subr
+$gc                   $subr  ' gc              ret-bool   0 OR new-subr
 $function             $fsubr ' function                   2    new-subr
 new-symbol FREE       $subr  ' free            ret-bool   0 OR new-subr
 $exit                 $subr  ' exitf                      0    new-subr
