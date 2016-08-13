@@ -1,8 +1,6 @@
 ; $Id$
 
-(load "concat.lsp")
-(load "filter.lsp")
-(load "map.lsp")
+(LOAD "utils.lsp")
 
 ; Menge aller Partitionen einer Menge LI
 (DEFUN PARTITIONS (LI)
@@ -13,12 +11,11 @@
           (SETQ INSERT (LAMBDA (LI X)
                 (COND ((NULL LI) NIL)
                       (T (CONS (CONS (CONS X (CAR LI)) (CDR LI))
-                         (MAPCAR (INSERT (CDR LI) X)
-                            (FUNCTION (LAMBDA (Y) (CONS (CAR LI) Y)))))))))
-          (RETURN (CONCAT1 (MAPCAR (PARTITIONS LI) (FUNCTION
-                  (LAMBDA (Y) (CONS (CONS (LIST X) Y) (INSERT Y X)))))))))
+                         (MAPCAR #'(LAMBDA (Y) (CONS (CAR LI) Y))
+                                 (FUNCALL INSERT (CDR LI) X)))))))
+          (RETURN (CONCAT (MAPCAR
+                #'(LAMBDA (Y) (CONS (CONS (LIST X) Y) (FUNCALL INSERT Y X)))
+                (PARTITIONS LI))))))
 
-
-; Menge aller Partitionen der Maechtigkeit N einer Menge LI
-(DEFUN PART (LI N) (FILTER (PARTITIONS LI)
-                           (FUNCTION (LAMBDA (X) (EQ N (LENGTH X))))))
+; Bellsche Zahl B
+(DEFUN B (N) (LENGTH (PARTITIONS (SEQ N))))

@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.3 ref 2016-07-30
+\              Version 0.3 ref 2016-08-13
 \
 \        Written (w) 1987-2016 by Steffen Hieber
 \
@@ -68,11 +68,11 @@ tlisp DEFINITIONS       \ alle neuen Woerter ab jetzt in das Vokabular TLISP
 
 
 : units ( n -- m )
-    CELL 2/ DUP * *     \ 16-Bit: 2->1, 32-Bit: 4->4, 64-Bit: 8->16
+    CELL 2 = IF 1 ELSE 10 THEN *
 ;
                               \ Konfiguration (statisch)
-3000 units CONSTANT #nodes    \ Anzahl der vorhandenen Zellenpaare in MEM_NODE
-2500 units CONSTANT #chars    \ Groesse des Objektspeichers MEM_CHAR in Zeichen
+2500 units CONSTANT #nodes    \ Anzahl der vorhandenen Zellenpaare in MEM_NODE
+2000 units CONSTANT #chars    \ Groesse des Objektspeichers MEM_CHAR in Zeichen
 16         CONSTANT #read     \ Groesse des READ-Stacks
 20         CONSTANT #expr     \ Groesse des EXPR-Stacks
 4          CONSTANT #load     \ Maximale LOAD-Verschachtelungstiefe (FCBS)
@@ -1090,6 +1090,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     BEGIN
         $debug enabled? IF
             .indent ." apply: " prin SPACE ROT prin SPACE ROT print ROT
+            pause
         THEN
         DUP atom? IF
             DUP $subr get ?DUP IF
@@ -1721,7 +1722,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.3 ref 2016-07-30"
+    CR ." TinyLISP Version 0.3 ref 2016-08-13"
     CR ." Copyright (C) 1987-2016 Steffen Hieber"
     CR CR
 ;
@@ -1812,6 +1813,21 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : sub1       ( num1      -- num2   ) [ ' 1- ] LITERAL n-unary-op ;
 : terpri     (           -- nil    ) CR nil ;
 : times      ( argl ali  -- number ) [ ' * ] LITERAL 1 n-iter ;
+
+
+: apply1 ( argl ali -- sexpr )
+\ ======
+    SWAP DUP length DUP 2 3 check-args IF
+        2 = IF
+            OVER
+        ELSE
+            2DUP cdr cdr car SWAP (eval)    \ env
+        THEN
+        2DUP SWAP car SWAP (eval) -ROT
+        SWAP cdr car SWAP eval
+        ROT apply
+    THEN
+;
 
 
 : eval1 ( argl ali -- sexpr )
@@ -1979,7 +1995,7 @@ new-symbol COND       $fsubr ' evcon                      2    new-subr
 new-symbol BIND       $subr  ' bind                       3    new-subr
 new-symbol ATOM       $subr  ' atom?           ret-bool   1 OR new-subr
 new-symbol ASSOC      $subr  ' assoc                      2    new-subr
-new-symbol APPLY      $subr  ' apply                      3    new-subr
+new-symbol APPLY      $fsubr ' apply1                     2    new-subr
 new-symbol APPEND     $subr  ' append                     2    new-subr
 new-symbol AND        $fsubr ' l-and           ret-bool   2 OR new-subr
 new-symbol ADD1       $subr  ' add1            ret-number 1 OR new-subr

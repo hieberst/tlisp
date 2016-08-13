@@ -8,7 +8,8 @@
                   ))))
 	EXPR)
 
-(DEFLIST '((DEFINE (LAMBDA (X)   (DEFLIST X EXPR)))
+(DEFLIST '((PROG2  (LAMBDA (X Y) (CDR (CONS X Y))))
+           (DEFINE (LAMBDA (X)   (DEFLIST X EXPR)))
            (CSET   (LAMBDA (X Y) (PUTPROP X Y APVAL))))
          EXPR)
 
@@ -42,3 +43,15 @@
           ((ATOM X) NIL) ((ATOM Y) NIL)
           ((EQUAL (CAR X) (CAR Y)) (EQUAL (CDR X) (CDR Y)))
           (T NIL)))
+
+; Umkehren einer Liste, siehe REV3 und LISP 1.5 Programmers Manual Seite 62
+(DEFUN REVERSE (X)
+    (PROG (AKK)
+     LOOP (COND ((NULL X) (RETURN AKK)))
+          (SETQ AKK (CONS (CAR X) AKK))
+          (SETQ X (CDR X))
+          (GO LOOP)
+))
+
+(TERPRI)
+(LOAD "clisp.lsp")

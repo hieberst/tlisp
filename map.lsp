@@ -1,3 +1,6 @@
+; MAP-Funktionen
+; siehe "LISP" von Dieter Mueller, Kapitel 9.2, Seiten 118-122
+
 (DEFUN MAPCAR (LI FCT)
     (COND ((NULL LI) NIL)
           (T (CONS (FCT (CAR LI))
