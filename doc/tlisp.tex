@@ -237,15 +237,24 @@ Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
 \section{Installation}
 \subsection{Gforth}
 \subsubsection{Android}
-Installation von Gforth \\
-Kopieren der Dateien {\texttt tlisp.fs} und \texttt{*.lsp} nach
-\texttt{/storage/extSdCard/tlisp}
-\begin{verbatim}
-\ run tlisp on my android handy
-s" /storage/extSdCard/tlisp" set-dir drop
-include tlisp.fs
-driver
-\end{verbatim}
+Sei \texttt{/storage/sdCard0} der interne Speicher und sei
+\texttt{/storage/extSdCard/tlisp} das Installationsverzeichnis von TLISP.
+\begin{enumerate}
+\item Installation von Gforth aus Google Play Store und Ausführen von Gforth
+      zum Entpacken des Quellcodes.
+\item Kopieren der Dateien {\texttt tlisp.fs} und \texttt{*.lsp} nach
+      \texttt{/storage/extSdCard/tlisp}
+\item Erzeugen von \texttt{/storage/sdCard0/gforth/home/.gforthrc} mit
+      folgendem Inhalt:
+        \begin{verbatim}
+        : tl    \ run tlisp on my android handy
+            warnings off    \ 0. vs. #0.
+            s" /storage/extSdCard/tlisp" set-dir drop
+            s" tlisp.fs" required
+            s" driver" evaluate
+        ;
+        \end{verbatim}
+\end{enumerate}
 
 \subsection{F83}
 In F83 wird TLISP wie folgt ausgeführt:

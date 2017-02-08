@@ -3,7 +3,7 @@
 ; Stirling-Zahlen
 
 ; ==========================================================================
-; Die Stirling-Zahl erster Art S1(n,k) ist die Anzahl der Permutationen
+; Die Stirling-Zahl erster Art s(n,k) ist die Anzahl der Permutationen
 ; einer n-elementigen Menge, die genau k Zykel haben.
 ;
 ; Folge A130534 in OEIS (https://oeis.org/A130534)
@@ -30,7 +30,7 @@
           (T (+ (S1B (1- N) (1- K)) (* (1- N) (S1B (1- N) K))))))
 
 ; ==========================================================================
-; Die Stirling-Zahl zweiter Art S2(n,k) ist die Anzahl der
+; Die Stirling-Zahl zweiter Art S(n,k) ist die Anzahl der
 ; k-elementigen Partitionen einer n-elementigen Menge.
 ;
 ; Folge A008277 in OEIS (https://oeis.org/A008277)
