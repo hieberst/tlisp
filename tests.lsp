@@ -39,6 +39,11 @@
 ; More than one sexpr per line
 (CHECK (PLUS 1 2) 3) (CHECK (TIMES 2 3) 6)
 
+; LOAD
+(CHECK (LOAD "empty.lsp")     T)
+(CHECK (LOAD "missing.lsp")   NIL)
+(CHECK (LOAD "missing.txt" T) NIL)
+
 ; PROP
 (CHECK (CSETQ A 3) 3)
 (CHECK (DEFUN FOO () (PRINT "FOO")) FOO)

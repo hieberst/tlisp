@@ -1636,7 +1636,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             2DROP
             load_stack a> CLOSE-FILE THROW
         ELSE
-            NIP NIP NIP
+            NIP 2SWAP 2DROP
         THEN
         SWAP read_stack a-unmark
         tclear
