@@ -449,27 +449,22 @@ VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
 ;                               \ die leere Liste
 
 
-: symbolp ( sexpr -- flag )     \ liefert TRUE, wenn Symbol, sonst FALSE
-\ =======
-    DUP atom? IF (car) C@ type-symbol = ELSE DROP FALSE THEN
+: type? ( type -- )
+    CREATE
+        C,
+    DOES> ( sexpr -- flag )
+        OVER atom? IF C@ SWAP (car) C@ = ELSE 2DROP FALSE THEN
 ;
 
 
-: stringp ( sexpr -- flag )     \ liefert TRUE, wenn Zeichenkette, sonst FALSE
-\ =======
-    DUP atom? IF (car) C@ type-string = ELSE DROP FALSE THEN
-;
+type-symbol type? symbolp   \ liefert TRUE, wenn Symbol, sonst FALSE
+type-string type? stringp   \ liefert TRUE, wenn Zeichenkette, sonst FALSE
+type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
 
 
 : literal? ( sexpr -- flag )    \ liefert TRUE, wenn Literalatom, sonst FALSE
 \ ========
     DUP symbolp SWAP stringp OR
-;
-
-
-: numberp ( sexpr -- flag )     \ liefert TRUE, wenn Zahl, sonst FALSE
-\ =======
-    DUP atom? IF (car) C@ type-number = ELSE DROP FALSE THEN
 ;
 
 
