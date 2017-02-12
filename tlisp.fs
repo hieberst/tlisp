@@ -1,8 +1,8 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.3 ref 2016-08-13
+\              Version 0.3 ref $Date$
 \
-\        Written (w) 1987-2016 by Steffen Hieber
+\        Written (w) 1987-2017 by Steffen Hieber
 \
 \        RCS $Id$
 \
@@ -227,46 +227,57 @@ DEFER >oblist
 \ create a 2d-array identified by id
 : array ( id cols rows -- ) ( -- array )
     CREATE
-       ROT C, OVER C, DUP ,
+       ROT C, OVER C, ALIGN DUP ,
        * 2 + CELLS HERE OVER ALLOT SWAP ERASE
     DOES>
 ;
 
 
+: aaddr ( n m -- )
+    CREATE
+        SWAP C, C,
+    DOES> ( array -- a-addr )
+        DUP C@ CHARS SWAP CHAR+ C@ CELLS -ROT + ALIGNED +
+;
+
+
+2 0 aaddr arows
+2 1 aaddr abase
+2 2 aaddr adepth
+2 3 aaddr aelems
+
+
 : acols   ( array -- n ) CHAR+ C@ ;
-: arows   ( array -- n ) [ 2 CHARS ] LITERAL + @ ;
-: abase   ( array -- n ) [ 2 CHARS CELL+ ] LITERAL + @ ;
-: adepth  ( array -- n ) [ 2 CHARS 2 CELLS + ] LITERAL + @ ;
-: acount  ( array -- n ) DUP abase SWAP adepth + ;
+: acount  ( array -- n ) DUP abase @ SWAP adepth @ + ;
 
 
-: aempty? ( array -- flag ) adepth 0= ;
-: afull?  ( array -- flag ) DUP arows SWAP adepth = ;
+: aempty? ( array -- flag ) adepth @ 0= ;
+: afull?  ( array -- flag ) DUP arows @ SWAP adepth @ = ;
 
 
 : a-mark ( array -- n )
-    DUP adepth SWAP 2DUP
-    [ 2 CHARS CELL+ ] LITERAL + +!
-    [ 2 CHARS 2 CELLS + ] LITERAL + 0 SWAP !
+    DUP adepth @ SWAP 2DUP
+    abase +!
+    adepth 0 SWAP !
 ;
 
 
 : a-unmark ( n array -- )
-    OVER NEGATE SWAP [ 2 CHARS CELL+ ] LITERAL + TUCK +!
+    OVER NEGATE SWAP abase TUCK +!
     CELL+ +!
 ;
 
 
 : aclear ( array -- )
-    [ 2 CHARS CELL+ ] LITERAL + 2 CELLS ERASE
+    abase [ 2 CELLS ] LITERAL ERASE
 ;
 
 
 : a# ( col row array -- addr )
-    2DUP arows U< IF
+    2DUP arows @ U< IF
         ROT SWAP 2DUP acols U< IF
             ROT OVER acols *
-            ROT + CELLS [ 2 CHARS 3 CELLS + ] LITERAL + +
+            ROT + CELLS aelems +
         ELSE
             NIP NIP e_range
         THEN
@@ -285,7 +296,7 @@ DEFER >oblist
     DUP afull? IF
         NIP e_overflow error
     ELSE
-        1 OVER [ 2 CHARS 2 CELLS + ] LITERAL + +!           \ incr
+        1 OVER adepth +!           \ incr
         DUP acount 1- SWAP
         ( n1 n2 n3 row array )
         0 OVER acols 1- DO
@@ -301,7 +312,7 @@ DEFER >oblist
     DUP aempty? IF
         e_underflow error
     ELSE
-        -1 OVER [ 2 CHARS 2 CELLS + ] LITERAL + +!          \ decr
+        -1 OVER adepth +!          \ decr
         DUP acount SWAP
         DUP acols 0 DO
             2DUP I -ROT a@ -ROT
@@ -949,7 +960,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : prog-eval ( sexpr env -- sexpr )
 \ =========
-    RP@ prog-rp-eval prog_stack DUP adepth 1- SWAP a!
+    RP@ prog-rp-eval prog_stack DUP adepth @ 1- SWAP a!
     eval
 ;
 
@@ -1493,7 +1504,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : read ( -- sexpr )
 \ ====
-    read_stack adepth DUP 0= IF
+    read_stack adepth @ DUP 0= IF
         DROP (read) DUP
         0 ?DO SWAP read_stack >a LOOP
     THEN
@@ -1717,8 +1728,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.3 ref 2016-08-13"
-    CR ." Copyright (C) 1987-2016 Steffen Hieber"
+    CR ." TinyLISP Version 0.3 ref $Date$"
+    CR ." Copyright (C) 1987-2017 Steffen Hieber"
     CR CR
 ;
 
