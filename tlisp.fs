@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.3 ref $Date$
+\              Version 0.4 ref 2017-02-12
 \
 \        Written (w) 1987-2017 by Steffen Hieber
 \
@@ -1728,7 +1728,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.3 ref $Date$"
+    CR ." TinyLISP Version 0.4 ref 2017-02-12"
     CR ." Copyright (C) 1987-2017 Steffen Hieber"
     CR CR
 ;
