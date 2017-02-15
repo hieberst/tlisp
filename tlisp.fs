@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.4 ref 2017-02-12
+\              Version 0.4 ref 2017-02-15
 \
 \        Written (w) 1987-2017 by Steffen Hieber
 \
@@ -461,6 +461,7 @@ VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
 
 
 : type? ( type -- )
+\ =====
     CREATE
         C,
     DOES> ( sexpr -- flag )
@@ -1038,7 +1039,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     R> SWAP nil<> IF
         e_too_many_args error
     ELSE
-        [ 2 CHARS ] LITERAL + @ EXECUTE
+        [ 2 CHARS ] LITERAL + PERFORM
         SWAP CHAR+ C@ subr-ret AND DUP ret-number = IF
             DROP new-number
         ELSE DUP ret-bool = IF
@@ -1728,7 +1729,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.4 ref 2017-02-12"
+    CR ." TinyLISP Version 0.4 ref 2017-02-15"
     CR ." Copyright (C) 1987-2017 Steffen Hieber"
     CR CR
 ;
@@ -1744,81 +1745,107 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 ;
 
 
-: n-iter ( argl ali cfa n -- result )
+: reduce ( cfa n -- )
 \ ======
-    FALSE 4 ROLL
-    BEGIN
-        DUP nil<>
-    WHILE
-        DUP car 5 PICK eval
-        DUP numberp IF
-            number@
-            ROT IF ROT SWAP 3 PICK EXECUTE ELSE ROT DROP THEN TRUE
-        ELSE
-            e_no_number error LEAVE
-        THEN
-        ROT cdr
-    REPEAT
-    2DROP NIP NIP
+    CREATE ( cfa n -- )
+        , ,
+    DOES> ( argl ali -- result )
+        2@
+        FALSE 4 ROLL
+        BEGIN
+            DUP nil<>
+        WHILE
+            DUP car 5 PICK eval
+            DUP numberp IF
+                number@
+                ROT IF ROT SWAP 3 PICK EXECUTE ELSE ROT DROP THEN TRUE
+            ELSE
+                e_no_number error LEAVE
+            THEN
+            ROT cdr
+        REPEAT
+        2DROP NIP NIP
 ;
 
 
-: l-iter ( argl ali flag -- result )
-\ ======
-    ROT
-    BEGIN
-        DUP nil<>
-    WHILE
-        DUP car 3 PICK eval nil<>
-        2 PICK = IF DROP INVERT nil ELSE cdr THEN
-    REPEAT
-    DROP NIP INVERT
+' + 0 reduce plus
+' - 0 reduce difference
+' * 1 reduce times
+' / 1 reduce quotient
+
+
+: lany ( flag -- )  \ liefert <flag>, falls <flag> in Liste, sonst INVERT
+\ ====
+    CREATE
+        ,
+    DOES> ( argl ali -- result )
+        @ ROT
+        BEGIN
+            DUP nil<>
+        WHILE
+            DUP car 3 PICK eval nil<>
+            2 PICK = IF DROP INVERT nil ELSE cdr THEN
+        REPEAT
+        DROP NIP INVERT
 ;
 
 
-: n-unary-op ( num1 cfa -- num2 )
+FALSE lany land     \ logical and
+TRUE  lany lor      \ logical or
+
+
+: n-unary-op ( cfa1 cfa2 -- )
 \ ==========
-    OVER numberp IF
-        SWAP number@ SWAP
-        EXECUTE
-    ELSE
-        e_no_number error
-    THEN
+    CREATE
+        SWAP , ,
+    DOES> ( num1 -- num2 )
+        OVER numberp IF
+            SWAP number@ SWAP
+            PERFORM
+        ELSE
+            NIP CELL+ @ ?DUP IF
+                EXECUTE
+            ELSE
+                e_no_number error
+            THEN
+        THEN
 ;
 
 
-: n-binary-op ( num1 num2 cfa -- num3 )
+' 1+     0       n-unary-op add1
+' 1-     0       n-unary-op sub1
+' NEGATE 0       n-unary-op minus
+' 0=     ' FALSE n-unary-op zerop
+
+
+: n-binary-op ( cfa -- )
 \ ===========
-    -ROT
-    2DUP numberp SWAP numberp AND IF
-        number@ SWAP
-        number@ SWAP
-        ROT
-        EXECUTE
-    ELSE
-        e_no_number error
-    THEN
+    CREATE
+        ,
+    DOES> ( num1 num2 -- num3 )
+        -ROT
+        2DUP numberp SWAP numberp AND IF
+            number@ SWAP
+            number@ SWAP
+            ROT
+            PERFORM
+        ELSE
+            e_no_number error
+        THEN
 ;
+
+
+' >   n-binary-op greaterp  ( num1 num2 -- flag )
+' <   n-binary-op lessp     ( num1 num2 -- flag )
+' MOD n-binary-op remainder ( num1 num2 -- num3 )
 
 
 \ some more functions
-: add1       ( num1      -- num2   ) [ ' 1+ ] LITERAL n-unary-op ;
-: difference ( argl ali  -- number ) [ ' - ] LITERAL 0 n-iter ;
-: exitf      (           --        ) running OFF nil ;
-: greaterp   ( num1 num2 -- flag   ) [ ' > ] LITERAL n-binary-op ;
-: l-and      ( argl ali  -- flag   ) FALSE l-iter ;
-: l-or       ( argl ali  -- flag   ) TRUE  l-iter ;
-: lambda     ( argl ali  -- lexpr  ) DROP $lambda SWAP cons ;
-: lessp      ( num1 num2 -- flag   ) [ ' < ] LITERAL n-binary-op ;
-: minus      ( num1      -- num2   ) [ ' NEGATE ] LITERAL n-unary-op ;
-: nilf       ( argl ali  -- flag   ) 2DROP FALSE ;
-: plus       ( argl ali  -- number ) [ ' + ] LITERAL 0 n-iter ;
-: quote      ( argl ali  -- sexpr  ) DROP car ;
-: quotient   ( argl ali  -- number ) [ ' / ] LITERAL 1 n-iter ;
-: remainder  ( num1 num2 -- num3   ) [ ' MOD ] LITERAL n-binary-op ;
-: sub1       ( num1      -- num2   ) [ ' 1- ] LITERAL n-unary-op ;
-: terpri     (           -- nil    ) CR nil ;
-: times      ( argl ali  -- number ) [ ' * ] LITERAL 1 n-iter ;
+: exitf  (           --       ) running OFF nil ;
+: lambda ( argl ali  -- lexpr ) DROP $lambda SWAP cons ;
+: nilf   ( argl ali  -- flag  ) 2DROP FALSE ;
+: quote  ( argl ali  -- sexpr ) DROP car ;
+: terpri (           -- nil   ) CR nil ;
 
 
 : apply1 ( argl ali -- sexpr )
@@ -1932,16 +1959,6 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : setq ( argl ali -- sexpr ) OVER car           (set) ;
 
 
-: zerop ( sexpr -- sexpr  )
-\ =====
-    DUP numberp IF
-        number@ 0=
-    ELSE
-        DROP FALSE
-    THEN
-;
-
-
 \ @CODE
 new-symbol ZEROP      $subr  ' zerop           ret-bool   1 OR new-subr
 new-symbol TIMES      $fsubr ' times           ret-number 2 OR new-subr
@@ -1971,7 +1988,7 @@ new-symbol PRIN1      $subr  ' prin1                      1    new-subr
 new-symbol PRIN       $subr  ' prin                       1    new-subr
 new-symbol PLUS       $fsubr ' plus            ret-number 2 OR new-subr
 new-symbol PAIR       $subr  ' pair                       2    new-subr
-new-symbol OR         $fsubr ' l-or            ret-bool   2 OR new-subr
+new-symbol OR         $fsubr ' lor             ret-bool   2 OR new-subr
 new-symbol NUMBERP    $subr  ' numberp         ret-bool   1 OR new-subr
 new-symbol NULL       $subr  ' null            ret-bool   1 OR new-subr
 new-symbol NOT        $subr  ' null            ret-bool   1 OR new-subr
@@ -1991,6 +2008,7 @@ new-symbol GENSYM     $subr  ' gensym                     0    new-subr
 $gc                   $subr  ' gc              ret-bool   0 OR new-subr
 $function             $fsubr ' function                   2    new-subr
 new-symbol FREE       $subr  ' free            ret-bool   0 OR new-subr
+new-symbol FIXP       $subr  ' numberp         ret-bool   1 OR new-subr
 $exit                 $subr  ' exitf                      0    new-subr
 $evalquote            $fsubr ' evalquote                  2    new-subr
 $eval                 $fsubr ' eval1                      2    new-subr
@@ -2003,7 +2021,7 @@ new-symbol ATOM       $subr  ' atom?           ret-bool   1 OR new-subr
 new-symbol ASSOC      $subr  ' assoc                      2    new-subr
 new-symbol APPLY      $fsubr ' apply1                     2    new-subr
 new-symbol APPEND     $subr  ' append                     2    new-subr
-new-symbol AND        $fsubr ' l-and           ret-bool   2 OR new-subr
+new-symbol AND        $fsubr ' land            ret-bool   2 OR new-subr
 new-symbol ADD1       $subr  ' add1            ret-number 1 OR new-subr
 
 
