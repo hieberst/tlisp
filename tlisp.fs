@@ -138,7 +138,7 @@ DEFER >oblist
 
 \ =============================================================================
 
-: find-word ( -- )
+: find-word ( "name" -- cfa flag )
 \ =========
     BL WORD FIND
 ;
@@ -363,7 +363,8 @@ VARIABLE  envlist               \ Zeiger auf die Liste aller A-Listen
 VARIABLE  running               \ Flag, ob TLISP laeuft
 VARIABLE  rp_save               \ Merker des Return-Stack-Pointers (reset)
 VARIABLE  rp_max                \ Maximale Return-Stack-Ausnutzung (EVAL, GC)
-VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
+VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
+VARIABLE  fp_max                \ Maximale Gleitkommastack-Ausnutzung
 2VARIABLE gensym-num            \ Aktueller GENSYM-Zaehler
 
 
@@ -395,6 +396,7 @@ VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
     0 len_char !
     0 rp_max !
     0 sp_max !
+    0 fp_max !
     0. gensym-num 2!
     BL notation !
 ; init
@@ -416,8 +418,9 @@ VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
 
 1 CONSTANT type-symbol      \ counted string
 2 CONSTANT type-string      \ counted string, Ausgabe mit Anfuehrungszeichen
-3 CONSTANT type-number      \ single precision, signed
-4 CONSTANT type-code        \ attr + cfa
+3 CONSTANT type-fixed       \ single precision, signed
+4 CONSTANT type-float       \ single precision
+5 CONSTANT type-code        \ attr + cfa
 
 
 : (new-object) ( type size -- object )   \ Objektspeicher reservieren
@@ -471,12 +474,19 @@ VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
 
 type-symbol type? symbolp   \ liefert TRUE, wenn Symbol, sonst FALSE
 type-string type? stringp   \ liefert TRUE, wenn Zeichenkette, sonst FALSE
-type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
+type-fixed  type? fixp      \ liefert TRUE, wenn Ganzzahl, sonst FALSE
+type-float  type? floatp    \ liefert TRUE, wenn Fliesskommazahl, sonst FALSE
 
 
 : literal? ( sexpr -- flag )    \ liefert TRUE, wenn Literalatom, sonst FALSE
 \ ========
     DUP symbolp SWAP stringp OR
+;
+
+
+: numberp ( sexpr -- flag )    \ liefert TRUE, wenn Zahl, sonst FALSE
+\ =======
+    DUP fixp SWAP floatp OR
 ;
 
 
@@ -608,10 +618,17 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
 ;
 
 
+: store_max ( n addr -- )
+\ =========
+    2DUP @ > IF ! ELSE 2DROP THEN
+;
+
+
 : update_max ( -- )
 \ ==========
-    rdepth DUP rp_max @ U> IF rp_max ! ELSE DROP THEN
-    depth  DUP sp_max @ U> IF sp_max ! ELSE DROP THEN
+    rdepth rp_max store_max
+    depth  sp_max store_max
+    fdepth fp_max store_max
 ;
 
 
@@ -716,7 +733,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : free ( -- flag )
 \ ====
     CR ." Code: " {unused} U. ." bytes unused, rp_max=" rp_max @ U. bs EMIT
-                                          ." , sp_max=" sp_max @ U. CR
+                                          ." , sp_max=" sp_max @ U. bs EMIT
+                                          ." , fp_max=" fp_max @ U. CR
     ." Node: "
     freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN
     DUP 5 U.R ."  nodes used, " #nodes OVER - 5 U.R ."  / " #nodes 5 U.R
@@ -751,10 +769,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 DUP type-symbol = OVER type-string = OR IF
                     DROP CHAR+ COUNT
                     5 PICK 5 PICK COMPARE 0=
-                ELSE DUP type-number = IF
+                ELSE DUP type-fixed = IF
                     DROP CHAR+ @ 4 PICK =
+                ELSE DUP type-float = IF
+                    DROP CHAR+ FDUP F@ F=
                 ELSE
                     2DROP FALSE
+                THEN
                 THEN
                 THEN
                 DUP IF SWAP car TRUE ROT THEN INVERT
@@ -767,7 +788,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     WHILE
         cdr
     REPEAT
-    ROT DROP ROT DROP ROT DROP \ Eingangsparameter loeschen
+    \ Eingangsparameter loeschen
+    ROT type-float = IF FDROP THEN ROT DROP ROT DROP
 ;
 
 
@@ -795,12 +817,27 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : new-number ( n -- atom )
 \ ==========
-    DUP 0 type-number find-object IF
+    DUP 0 type-fixed find-object IF
         NIP
     ELSE
-        DROP type-number CELL (new-object)
+        DROP type-fixed CELL (new-object)
         ?DUP IF
             TUCK CHAR+ !
+            nil cons
+            >oblist
+        THEN
+    THEN
+;
+
+
+: new-float ( -- atom ) ( F: r -- )
+\ =========
+    FDUP 0 0 type-float find-object IF
+        FDROP
+    ELSE
+        DROP type-float [ 1 FLOATS ] LITERAL (new-object)
+        ?DUP IF
+            DUP CHAR+ F!
             nil cons
             >oblist
         THEN
@@ -820,8 +857,10 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         DUP (car) CHAR+ COUNT TYPE
     ELSE DUP atom? IF
         DUP (car) C@
-        DUP type-number = IF
+        DUP type-fixed = IF
             DROP DUP number@ 0 .R
+        ELSE DUP type-float = IF
+            DROP DUP (car) CHAR+ F@ F. bs EMIT
         ELSE DUP type-code = IF
             DROP ." @CODE"
             $debug enabled? IF
@@ -834,6 +873,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             THEN
         ELSE
             e_unknown_type error
+        THEN
         THEN
         THEN
     ELSE
@@ -1471,8 +1511,11 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 tstate CHAR+ C@ tstate C@ -         \ count
                 2DUP >snumber IF
                     NIP NIP new-number
+                ELSE DROP 2DUP >FLOAT IF
+                    2DROP new-float
                 ELSE
-                    DROP 2DUP {upper} (new-symbol)
+                    2DUP {upper} (new-symbol)
+                THEN
                 THEN
                 expr_stack a> count++ expr_stack >a
                 handle-quotes
@@ -1685,7 +1728,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         read_stack aclear           \ reset parser
         expr_stack aclear
         nil envlist !               \ reset environment list
-        SP0 @ SP!                   \ reset data stack (clearstack)
+\       FP0 @ FP!                   \ reset floating point stack (FINIT)
+        SP0 @ SP!                   \ reset data stack (CLEARSTACK)
         rp_save @ RP!               \ reset return stack
         gc DROP                     \ garbage collection
         top-level
@@ -2008,7 +2052,8 @@ new-symbol GENSYM     $subr  ' gensym                     0    new-subr
 $gc                   $subr  ' gc              ret-bool   0 OR new-subr
 $function             $fsubr ' function                   2    new-subr
 new-symbol FREE       $subr  ' free            ret-bool   0 OR new-subr
-new-symbol FIXP       $subr  ' numberp         ret-bool   1 OR new-subr
+new-symbol FLOATP     $subr  ' floatp          ret-bool   1 OR new-subr
+new-symbol FIXP       $subr  ' fixp            ret-bool   1 OR new-subr
 $exit                 $subr  ' exitf                      0    new-subr
 $evalquote            $fsubr ' evalquote                  2    new-subr
 $eval                 $fsubr ' eval1                      2    new-subr

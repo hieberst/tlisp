@@ -13,6 +13,21 @@ DECIMAL
 
 FALSE WARNING !
 
+\ ---- Floating Point Support ------------------------------------
+
+NEEDS FFLOAT
+
+: >FLOAT ( F: -- r ; c-addr u -- flag )
+    PAD PLACE
+    PAD FP-CHECK DUP IF
+        SWAP FNUMBER
+    THEN
+;
+
+: FLOATS 10 * ;
+
+\ ----------------------------------------------------------------
+
 \ defined in TFLOAD.BLK, used in ANS.F83 and EAKER.F83
 : ENDPGM NOOP ; IMMEDIATE
 
