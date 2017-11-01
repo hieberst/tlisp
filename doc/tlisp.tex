@@ -298,7 +298,7 @@ Der Arbeitsspeicher ist in F83 wie folgt organisiert:
 8080 Forth 83 Model
 Version 2.1.0 Modified 01Jun84
 \end{verbatim}
-Auf Laufwerk B: befindet sich F83, Laufwerk C: TLISP.
+Auf Laufwerk B: befindet sich F83, auf Laufwerk C: befindet sich TLISP.
 \begin{verbatim}
 c:
 r ..\tlisp.sub l
@@ -311,11 +311,12 @@ submit tlisp ..\
 Version 2.1.0 Modified 01Jun84
 \end{verbatim}
 
-\subsection{F-PC}
+\subsection{F-PC 3.60}
+Mittels {\texttt tlisp.seq} wird TLISP geladen:
 \begin{verbatim}
 d:
 cd \work\src\tlisp
-fload tlisp.seq
+fload tlisp
 \end{verbatim}
 
 \subsection{Win32Forth}

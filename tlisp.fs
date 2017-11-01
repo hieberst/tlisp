@@ -138,7 +138,7 @@ DEFER >oblist
 
 \ =============================================================================
 
-: find-word ( -- )
+: find-word ( "name" -- cfa flag )
 \ =========
     BL WORD FIND
 ;
@@ -146,61 +146,45 @@ DEFER >oblist
 
 : {char} ( -- ch )
 \ =======
-    [ find-word ASCII ] 2LITERAL IF                 \ F83, F-PC
-        EXECUTE
-    ELSE
-        DROP CHAR                                   \ ANS
-    THEN
+    [ [DEFINED] ASCII [IF] ]                \ F83, F-PC
+        POSTPONE ASCII
+    [ [ELSE] ]
+        CHAR                                \ ANS
+    [ [THEN] ]
 ;
 
 
-: {mu/mod} ( ud1 u1 -- u2 ud2 )
-\ ========
-    [ find-word MU/MOD ] 2LITERAL IF                \ F83, F-PC
-        EXECUTE
-    ELSE
-        DROP
-        >R 0 R@ UM/MOD R> SWAP >R UM/MOD R>
-    THEN
+[UNDEFINED] MU/MOD [IF]
+: MU/MOD ( ud1 u1 -- u2 ud2 )               \ defined in F83, F-PC
+\ ======
+    >R 0 R@ UM/MOD R> SWAP >R UM/MOD R>
 ;
+[THEN]
 
 
-: {unused} ( --  u )
-\ ========
-    [ find-word UNUSED ] 2LITERAL IF
-        EXECUTE                                     \ gforth, Win32Forth
-    ELSE
-        DROP SP@ HERE -                             \ F83, F-PC
-    THEN
+[UNDEFINED] UNUSED [IF]
+: UNUSED ( -- u )                           \ defined in gforth, Win32Forth
+\ ======
+    DROP SP@ HERE -                         \ F83, F-PC
 ;
+[THEN]
 
 
-: {upc} ( ch -- ch )
-\ =====
-    [ find-word UPC ] 2LITERAL IF
-        EXECUTE                                     \ F83, F-PC
-    ELSE DROP [ find-word TOUPPER ] 2LITERAL IF
-        EXECUTE
-    ELSE
-        DROP
-        ABORT" fatal: neither UPC nor TOUPPER are available"
-    THEN
-    THEN
-;
+[UNDEFINED] UPPER [IF]
 
+    [UNDEFINED] TOUPPER [IF]
+    : TOUPPER ( ch -- ch ) UPC ;                    \ F83, F-PC
+    [THEN]
 
-: {upper} ( c-addr u -- )
-\ =======
-    [ find-word UPPER ] 2LITERAL IF
-        EXECUTE
-    ELSE
-        DROP 0 ?DO
+    : UPPER ( c-addr u -- )
+    \ =====
+        0 ?DO
             DUP I CHARS +
-            DUP C@ {upc} SWAP C!
+            DUP C@ TOUPPER SWAP C!
         LOOP
         DROP
-    THEN
-;
+    ;
+[THEN]
 
 \ =============================================================================
 
@@ -363,7 +347,7 @@ VARIABLE  envlist               \ Zeiger auf die Liste aller A-Listen
 VARIABLE  running               \ Flag, ob TLISP laeuft
 VARIABLE  rp_save               \ Merker des Return-Stack-Pointers (reset)
 VARIABLE  rp_max                \ Maximale Return-Stack-Ausnutzung (EVAL, GC)
-VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
+VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
 2VARIABLE gensym-num            \ Aktueller GENSYM-Zaehler
 
 
@@ -527,7 +511,7 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
 
 : new-symbol ( -- atom )
 \ ==========
-    BL WORD COUNT 2DUP {upper} type-symbol (new-literal)
+    BL WORD COUNT 2DUP UPPER type-symbol (new-literal)
 ;
 
 
@@ -608,10 +592,16 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
 ;
 
 
+: store_max ( n addr -- )
+\ =========
+    2DUP @ > IF ! ELSE 2DROP THEN
+;
+
+
 : update_max ( -- )
 \ ==========
-    rdepth DUP rp_max @ U> IF rp_max ! ELSE DROP THEN
-    depth  DUP sp_max @ U> IF sp_max ! ELSE DROP THEN
+    rdepth rp_max store_max
+    depth  sp_max store_max
 ;
 
 
@@ -715,8 +705,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : free ( -- flag )
 \ ====
-    CR ." Code: " {unused} U. ." bytes unused, rp_max=" rp_max @ U. bs EMIT
-                                          ." , sp_max=" sp_max @ U. CR
+    CR ." Code: " UNUSED U. ." bytes unused, rp_max=" rp_max @ U. bs EMIT
+                                        ." , sp_max=" sp_max @ U. CR
     ." Node: "
     freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN
     DUP 5 U.R ."  nodes used, " #nodes OVER - 5 U.R ."  / " #nodes 5 U.R
@@ -1472,7 +1462,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 2DUP >snumber IF
                     NIP NIP new-number
                 ELSE
-                    DROP 2DUP {upper} (new-symbol)
+                    DROP 2DUP UPPER (new-symbol)
                 THEN
                 expr_stack a> count++ expr_stack >a
                 handle-quotes
@@ -1685,7 +1675,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
         read_stack aclear           \ reset parser
         expr_stack aclear
         nil envlist !               \ reset environment list
-        SP0 @ SP!                   \ reset data stack (clearstack)
+        SP0 @ SP!                   \ reset data stack (CLEARSTACK)
         rp_save @ RP!               \ reset return stack
         gc DROP                     \ garbage collection
         top-level
@@ -1896,7 +1886,7 @@ TRUE  lany lor      \ logical or
     [CHAR] G PAD C!
     gensym-num 2@
     1 d/gensym DO
-        BASE @ {mu/mod} ROT >digit PAD I CHARS + C!
+        BASE @ MU/MOD ROT >digit PAD I CHARS + C!
     -1 +LOOP 2DROP
     PAD d/gensym 1+ (new-symbol)
 ;
@@ -2025,5 +2015,6 @@ new-symbol AND        $fsubr ' land            ret-bool   2 OR new-subr
 new-symbol ADD1       $subr  ' add1            ret-number 1 OR new-subr
 
 
-: try-exec find-word IF EXECUTE ELSE DROP THEN ;
-try-exec ENDPGM     \ TFLOAD (F83)
+[DEFINED] ENDPGM [IF]      \ TFLOAD (F83)
+ENDPGM
+[THEN]
