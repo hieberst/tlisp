@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.4 ref 2017-02-15
+\              Version 0.5 ref 2017-11-02
 \
 \        Written (w) 1987-2017 by Steffen Hieber
 \
@@ -138,7 +138,7 @@ DEFER >oblist
 
 \ =============================================================================
 
-: find-word ( -- )
+: find-word ( "name" -- cfa flag )
 \ =========
     BL WORD FIND
 ;
@@ -191,7 +191,9 @@ DEFER >oblist
 
 : {upper} ( c-addr u -- )
 \ =======
-    [ find-word UPPER ] 2LITERAL IF
+    [ find-word UPCASE ] 2LITERAL IF
+        EXECUTE                                     \ SwiftForth
+    ELSE DROP [ find-word UPPER ] 2LITERAL IF
         EXECUTE
     ELSE
         DROP 0 ?DO
@@ -199,6 +201,7 @@ DEFER >oblist
             DUP C@ {upc} SWAP C!
         LOOP
         DROP
+    THEN
     THEN
 ;
 
@@ -363,7 +366,7 @@ VARIABLE  envlist               \ Zeiger auf die Liste aller A-Listen
 VARIABLE  running               \ Flag, ob TLISP laeuft
 VARIABLE  rp_save               \ Merker des Return-Stack-Pointers (reset)
 VARIABLE  rp_max                \ Maximale Return-Stack-Ausnutzung (EVAL, GC)
-VARIABLE  sp_max                \ Maximale Daten-Stack-Ausnutzung
+VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
 2VARIABLE gensym-num            \ Aktueller GENSYM-Zaehler
 
 
@@ -608,10 +611,16 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
 ;
 
 
+: store_max ( n addr -- )
+\ =========
+    2DUP @ U> IF ! ELSE 2DROP THEN
+;
+
+
 : update_max ( -- )
 \ ==========
-    rdepth DUP rp_max @ U> IF rp_max ! ELSE DROP THEN
-    depth  DUP sp_max @ U> IF sp_max ! ELSE DROP THEN
+    rdepth rp_max store_max
+    depth  sp_max store_max
 ;
 
 
@@ -1729,7 +1738,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.4 ref 2017-02-15"
+    CR ." TinyLISP Version 0.5 ref 2017-11-02"
     CR ." Copyright (C) 1987-2017 Steffen Hieber"
     CR CR
 ;
