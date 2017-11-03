@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.4 ref 2017-02-15
+\              Version 0.5 ref 2017-11-02
 \
 \        Written (w) 1987-2017 by Steffen Hieber
 \
@@ -191,7 +191,9 @@ DEFER >oblist
 
 : {upper} ( c-addr u -- )
 \ =======
-    [ find-word UPPER ] 2LITERAL IF
+    [ find-word UPCASE ] 2LITERAL IF
+        EXECUTE                                     \ SwiftForth
+    ELSE DROP [ find-word UPPER ] 2LITERAL IF
         EXECUTE
     ELSE
         DROP 0 ?DO
@@ -199,6 +201,7 @@ DEFER >oblist
             DUP C@ {upc} SWAP C!
         LOOP
         DROP
+    THEN
     THEN
 ;
 
@@ -620,7 +623,7 @@ type-float  type? floatp    \ liefert TRUE, wenn Fliesskommazahl, sonst FALSE
 
 : store_max ( n addr -- )
 \ =========
-    2DUP @ > IF ! ELSE 2DROP THEN
+    2DUP @ U> IF ! ELSE 2DROP THEN
 ;
 
 
@@ -1773,7 +1776,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.4 ref 2017-02-15"
+    CR ." TinyLISP Version 0.5 ref 2017-11-02"
     CR ." Copyright (C) 1987-2017 Steffen Hieber"
     CR CR
 ;
