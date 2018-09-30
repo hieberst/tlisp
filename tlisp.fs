@@ -1,8 +1,8 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.5 ref 2017-11-02
+\              Version 0.6 ref 2018-09-30
 \
-\        Written (w) 1987-2017 by Steffen Hieber
+\        Written (w) 1987-2018 by Steffen Hieber
 \
 \        RCS $Id$
 \
@@ -381,7 +381,7 @@ VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
 
 
 : (rplaca)  ( sexpr newhead -- sexpr ) OVER gc-clear mem_node +       ! ;
-: (rplacd)  ( sexpr newtail -- sexpr ) OVER gc-clear mem_node + CELL+ ! ;
+:  rplacd   ( sexpr newtail -- sexpr ) OVER gc-clear mem_node + CELL+ ! ;
 
 
 : null  ( sexpr -- flag ) nil =  ;      \ alternativ: 0=
@@ -391,9 +391,9 @@ VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
 : init ( -- )         \ Listen-Speicher und Variablen initialisieren
 \ ====
     [ #nodes sizeof_node * ] LITERAL 0 ?DO
-        I nil (rplaca) I sizeof_node + (rplacd) DROP
+        I nil (rplaca) I sizeof_node + rplacd DROP
     sizeof_node +LOOP
-    [ #nodes 1- sizeof_node * ] LITERAL nil (rplacd) DROP
+    [ #nodes 1- sizeof_node * ] LITERAL nil rplacd DROP
     0 freelist !
     0 len_char !
     0 rp_max !
@@ -412,7 +412,7 @@ VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
 
 : (free-node) ( sexpr -- )
 \ ===========
-    nil (rplaca) freelist @ (rplacd)
+    nil (rplaca) freelist @ rplacd
     freelist !
 ;
 
@@ -440,7 +440,7 @@ VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
 
 : cons ( sexpr1 sexpr2 -- sexpr )
 \ ====
-    (new-node) SWAP (rplacd)
+    (new-node) SWAP  rplacd
                SWAP (rplaca)
 ;
 
@@ -505,12 +505,6 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
 : rplaca ( sexpr newhead -- sexpr )
 \ ======
     OVER atom? IF DROP e_no_sexpr error ELSE (rplaca) THEN
-;
-
-
-: rplacd ( sexpr newtail -- sexpr )
-\ ======
-    OVER atom? IF DROP e_no_sexpr error ELSE (rplacd) THEN
 ;
 
 
@@ -579,7 +573,7 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
     ?DUP IF
         NIP NIP OVER (rplaca) DROP
     ELSE
-        OVER cdr 3 PICK SWAP cons cons (rplacd) DROP
+        OVER cdr 3 PICK SWAP cons cons rplacd DROP
     THEN
 ;
 
@@ -591,7 +585,7 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
         BEGIN
             OVER cdr ?DUP IF
                 NIP DUP car 3 PICK <> DUP INVERT IF
-                    -ROT cdr cdr (rplacd) DROP NIP TRUE SWAP
+                    -ROT cdr cdr rplacd DROP NIP TRUE SWAP
                 THEN
             ELSE
                 NIP NIP FALSE
@@ -620,7 +614,7 @@ type-number type? numberp   \ liefert TRUE, wenn Zahl, sonst FALSE
 : update_max ( -- )
 \ ==========
     rdepth rp_max store_max
-    depth  sp_max store_max
+    DEPTH  sp_max store_max
 ;
 
 
@@ -683,6 +677,7 @@ new-symbol SUBR                         CONSTANT $subr
 new-symbol STOP                         CONSTANT $stop
 new-symbol QUOTE                        CONSTANT $quote
 new-symbol PAUSE                        CONSTANT $pause
+new-symbol NEXPR     DUP $apval putprop CONSTANT $nexpr
 new-symbol LAMBDA    DUP $apval putprop CONSTANT $lambda
 new-symbol GC                           CONSTANT $gc
 new-symbol FUNCTION                     CONSTANT $function
@@ -734,7 +729,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     len_char @
     DUP 5 U.R ."  bytes used, " #chars OVER - 5 U.R ."  / " #chars 5 U.R
          ."  bytes free (" 100 100 ROT #chars */ - 2 U.R ." %)" CR
-    ." Envs: " envlist @ length u. CR
+    ." Envs: " envlist @ length U. CR
     TRUE
 ;
 
@@ -1118,12 +1113,15 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             ELSE
                 DUP $expr get ?DUP IF
                     NIP
+                ELSE DUP $nexpr get ?DUP IF
+                    NIP
                 ELSE DUP $fexpr get ?DUP IF
                     NIP -ROT DUP -ROT nil cons cons SWAP ROT
                 ELSE DUP 2 PICK assoc ?DUP IF
                     NIP cdr                         \ APPLY statt EVAL
                 ELSE
                     e_no_lexpr error LEAVE
+                THEN
                 THEN
                 THEN
                 THEN
@@ -1192,7 +1190,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 \ ========
     DUP atom? IF
         DUP  $fsubr get nil<>
-        SWAP $fexpr get nil<> OR
+        OVER $fexpr get nil<> OR
+        SWAP $nexpr get nil<> OR
     ELSE
         DROP FALSE
     THEN
@@ -1297,8 +1296,19 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 10 CONSTANT token-string    \ string
 
 
-: handle-sharp ( char -- token )
+: handle-sharp ( -- token )
     readc [CHAR] ' = IF token-function ELSE tundo 0 THEN
+;
+
+
+: handle-comment ( -- token )   \ line comment
+\ ==============
+    tundo readc
+    DUP [CHAR] ; = SWAP [CHAR] / = tstate C@ 0= AND OR IF
+        token-nl tclear
+    ELSE
+        0
+    THEN
 ;
 
 
@@ -1332,8 +1342,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                      BL       OF 0 tnext         ENDOF
                      tab      OF 0 tnext         ENDOF
                      [CHAR] , OF 0 tnext         ENDOF
-                     [CHAR] ; OF token-nl tclear ENDOF  \ line comment
-                                 0 SWAP
+                                 handle-comment SWAP
                 ENDCASE
             ELSE
                 tstate DUP C@ 3 + CHARS + C@ [CHAR] " = IF
@@ -1525,13 +1534,13 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : gc-mark ( sexpr -- sexpr )
 \ =======
-    DUP cdr gc-used OR (rplacd)
+    DUP cdr gc-used OR rplacd
 ;
 
 
 : gc-unmark ( sexpr -- sexpr )
 \ =========
-    DUP cdr gc-clear (rplacd)
+    DUP cdr gc-clear rplacd
 ;
 
 
@@ -1738,8 +1747,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.5 ref 2017-11-02"
-    CR ." Copyright (C) 1987-2017 Steffen Hieber"
+    CR ." TinyLISP Version 0.6 ref 2018-09-30"
+    CR ." Copyright (C) 1987-2018 Steffen Hieber"
     CR CR
 ;
 

@@ -1,4 +1,6 @@
+#! /bin/sh
+
 # $Id$
 
-#! /bin/sh
-gforth tlisp.fs -e "driver"
+cd $(dirname $(readlink -f $0))
+gforth -e "warnings off" tlisp.fs -e "driver"

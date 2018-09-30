@@ -1,0 +1,19 @@
+/ -*- mode: Lisp; -*-
+/ vi: set ft=lisp
+
+/ Interpreting LISP; Gary D. Knott
+/
+/ Exercise 13.13: Define a LISP function DEPTH, which takes
+/ an S-expression a as input and returns 0 if a is an atom
+/ and returns the number of levels in the binary tree picture
+/ of a otherwise. Thus the depth of the S-expression a is the
+/ maximum number of parentheses pairs which enclose an
+/ atom in a.
+
+(SETQ MAX (LAMBDA (A B)
+    (COND ((GREATERP A B) A)
+          (T B))))
+
+(SETQ DEPTH (LAMBDA (A)
+    (COND ((ATOM A) 0)
+          (T (PLUS 1 (MAX (DEPTH (CAR A)) (DEPTH (CDR A))))))))

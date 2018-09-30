@@ -52,6 +52,10 @@
     (COND ((OR (NULL L) (ZEROP N)) L)
           (T (NTHCDR (1- N) (CDR L)))))
 
+(DEFUN COPY-LIST (X)
+    (COND ((NULL X) NIL)
+          (T (CONS (CAR X) (COPY-LIST (CDR X))))))
+
 ; Comparision operators
 
 (DEFUN =  (X Y) (EQUAL X Y))

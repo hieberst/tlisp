@@ -7,12 +7,14 @@
 stat *.blk    $$r/w
 stat *.f83    $$r/w
 stat *.lsp    $$r/w
+stat depth    $$r/w
 stat tlisp.fs $$r/w
 ;
 ; copy files from host
 r $1*.blk    l
 r $1*.f83    l
 r $1*.lsp    l
+r $1depth    l
 r $1tlisp.fs l
 ;
 ; change file attributes to r/o
@@ -25,3 +27,4 @@ b:f83
 ;open tfload.blk 2 load
 ;open eaker.f83 tfload
 ;open ans.f83 tfload
+;open tlisp.fs tfload

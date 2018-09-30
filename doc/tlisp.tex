@@ -5,6 +5,7 @@
 
 \documentclass[11pt,a4paper,titlepage]{article}
 
+\usepackage[T1]{fontenc}
 \usepackage[ngerman]{babel}
 \usepackage{bibgerm}
 \usepackage[latin9]{inputenc}
@@ -236,17 +237,22 @@ Siehe auch:   & \multicolumn{2}{l}{\hyperref[NUMBERP]{NUMBERP}}
 \newpage
 \section{Installation}
 \subsection{Gforth}
+\subsubsection{Windows}
+Unter Windows wird TLISP mittels der Batch-Datei \path{tlisp.cmd}\index{tlisp.cmd} gestartet.
+
 \subsubsection{Android}
-Sei \texttt{/storage/sdCard0} der interne Speicher und sei
-\texttt{/storage/extSdCard/tlisp} das Installationsverzeichnis von TLISP.
+Sei \path{/storage/sdCard0} der interne Speicher und sei
+\path{/storage/extSdCard/tlisp} das Installationsverzeichnis von TLISP.
 \begin{enumerate}
-\item Installation von Gforth aus Google Play Store und Ausführen von Gforth
+\item Installation von Gforth aus dem \href{https://play.google.com/store/apps/details?id=gnu.gforth}{Google Play Store} und Ausführen von Gforth
       zum Entpacken des Quellcodes.
-\item Kopieren der Dateien {\texttt tlisp.fs} und \texttt{*.lsp} nach
-      \texttt{/storage/extSdCard/tlisp}
-\item Erzeugen von \texttt{/storage/sdCard0/gforth/home/.gforthrc} mit
+\item Kopieren der Dateien \path{tlisp.fs} und \path{*.lsp} nach
+      \path{/storage/extSdCard/tlisp}
+\item Erzeugen von \path{/storage/sdCard0/gforth/home/.gforthrc} mit
       folgendem Inhalt:
         \begin{verbatim}
+        0.5e gl-fscale    \ SM-T580 only
+
         : tl    \ run tlisp on my android handy
             warnings off    \ 0. vs. #0.
             s" /storage/extSdCard/tlisp" set-dir drop
@@ -254,7 +260,10 @@ Sei \texttt{/storage/sdCard0} der interne Speicher und sei
             s" driver" evaluate
         ;
         \end{verbatim}
+      Ab Gforth Version \href{https://github.com/forthy42/gforth/releases/tag/0.7.9_20180905}{0.7.9\_20180905}
+      heißt diese Datei \path{~/.config/gforthrc} statt \path{~/.gforthrc} (Poettering-Stil).
 \end{enumerate}
+Eine gute Tastatur ist das \href{https://play.google.com/store/apps/details?id=org.pocketworkstation.pckeyboard}{Hacker's Keyboard}.
 
 \subsection{F83}
 In F83 wird TLISP wie folgt ausgeführt:
@@ -266,11 +275,12 @@ open tlisp.fs   tfload
 driver
 \end{verbatim}
 Als Hilfe dazu gibt es diverse Helferlein:
-\begin{itemize}
-\item[tlisp.btm] Batch-Datei für 4DOS
-\item[tlisp.ahk] AutoHotKey-Skript für Windows
-\item[tlisp.sub] Submit-Datei für CP/M
-\end{itemize}
+\begin{description}
+\setlength{\itemsep}{0pt}
+\item \path{tlisp.btm} \hspace{4mm} Batch-Datei für 4DOS, 4NT und TCC
+\item \path{tlisp.ahk} \hspace{4mm} \href{https://www.autohotkey.com/}{AutoHotkey}-Skript für Windows
+\item \path{tlisp.sub} \hspace{4mm} Submit-Datei für CP/M
+\end{description}
 
 Der Arbeitsspeicher ist in F83 wie folgt organisiert:
 \begin{verbatim}
