@@ -1,8 +1,8 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.6 ref 2018-09-30
+\              Version 0.6 ref 2019-07-29
 \
-\        Written (w) 1987-2018 by Steffen Hieber
+\        Written (w) 1987-2019 by Steffen Hieber
 \
 \        RCS $Id$
 \
@@ -738,8 +738,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 \ ========
     type-code [ 1 CHARS CELL+ ] LITERAL (new-object)
     ?DUP IF
-        TUCK CHAR+ C!                       \ attr (i.e. arity)
-        TUCK [ 2 CHARS ] LITERAL + !        \ cfa
+        TUCK CHAR+ C!                                   \ attr (i.e. arity)
+        SWAP ['] tlisp - OVER [ 2 CHARS ] LITERAL + !   \ cfa
         nil cons
         SWAP putprop DROP
     THEN
@@ -831,7 +831,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
             $debug enabled? IF
                 DUP (car) CHAR+ DUP CHAR+ @
                 [CHAR] [ EMIT
-                >NAME .ID bs EMIT
+                ['] tlisp + >NAME .ID bs EMIT
                 [CHAR] / EMIT
                 C@ subr-arity AND 0 U.R
                 [CHAR] ] EMIT
@@ -1043,7 +1043,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     R> SWAP nil<> IF
         e_too_many_args error
     ELSE
-        [ 2 CHARS ] LITERAL + PERFORM
+        [ 2 CHARS ] LITERAL + @ ['] tlisp + EXECUTE
         SWAP CHAR+ C@ subr-ret AND DUP ret-number = IF
             DROP new-number
         ELSE DUP ret-bool = IF
@@ -1747,8 +1747,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.6 ref 2018-09-30"
-    CR ." Copyright (C) 1987-2018 Steffen Hieber"
+    CR ." TinyLISP Version 0.6 ref 2019-07-29"
+    CR ." Copyright (C) 1987-2019 Steffen Hieber"
     CR CR
 ;
 
@@ -1859,11 +1859,13 @@ TRUE  lany lor      \ logical or
 
 
 \ some more functions
-: exitf  (           --       ) running OFF nil ;
-: lambda ( argl ali  -- lexpr ) DROP $lambda SWAP cons ;
-: nilf   ( argl ali  -- flag  ) 2DROP FALSE ;
-: quote  ( argl ali  -- sexpr ) DROP car ;
-: terpri (           -- nil   ) CR nil ;
+: eq     ( sexpr1 sexpr2 -- flag  ) = ;
+: exitf  (               --       ) running OFF nil ;
+: lambda ( argl ali      -- lexpr ) DROP $lambda SWAP cons ;
+: nilf   ( argl ali      -- flag  ) 2DROP FALSE ;
+: quote  ( argl ali      -- sexpr ) DROP car ;
+: t      ( sexpr         -- sexpr ) NOOP ;
+: terpri (               -- nil   ) CR nil ;
 
 
 : apply1 ( argl ali -- sexpr )
@@ -1981,7 +1983,7 @@ TRUE  lany lor      \ logical or
 new-symbol ZEROP      $subr  ' zerop           ret-bool   1 OR new-subr
 new-symbol TIMES      $fsubr ' times           ret-number 2 OR new-subr
 new-symbol TERPRI     $subr  ' terpri                     0    new-subr
-$t                    $subr  ' NOOP                       1    new-subr
+$t                    $subr  ' t                          1    new-subr
 new-symbol SYMBOLP    $subr  ' symbolp         ret-bool   1 OR new-subr
 new-symbol SUB1       $subr  ' sub1            ret-number 1 OR new-subr
 new-symbol STRINGP    $subr  ' stringp         ret-bool   1 OR new-subr
@@ -2030,7 +2032,7 @@ new-symbol FIXP       $subr  ' numberp         ret-bool   1 OR new-subr
 $exit                 $subr  ' exitf                      0    new-subr
 $evalquote            $fsubr ' evalquote                  2    new-subr
 $eval                 $fsubr ' eval1                      2    new-subr
-new-symbol EQ         $subr  ' =               ret-bool   2 OR new-subr
+new-symbol EQ         $subr  ' eq              ret-bool   2 OR new-subr
 new-symbol DIFFERENCE $fsubr ' difference      ret-number 2 OR new-subr
 new-symbol CONS       $subr  ' cons                       2    new-subr
 new-symbol COND       $fsubr ' evcon                      2    new-subr
