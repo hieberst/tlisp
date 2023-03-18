@@ -23,7 +23,7 @@
 
 (DEFSP TRACE
     (PROG (FN PNEU PARLI)
-            (CSETQ ST 0)                                    ; Stufenzähler
+            (CSETQ ST 0)                                    ; Stufenzaehler
      NEXT   ((NULL ARGL) (RETURN 'OK))
             (SETQ FN (CAR ARGL))
             (COND ((ATOM FN) (GO ATOM)))

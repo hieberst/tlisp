@@ -1,4 +1,5 @@
 ; Pascal'sches Dreieck
+; siehe "LISP" von Dieter Mueller, Kapitel 9.2, Seite 121f
 
 (LOAD "map.lsp")
 

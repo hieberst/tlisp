@@ -8,7 +8,7 @@
                    (FIB1 (DIFFERENCE J 2))))
 ))
 
-; Iterative Version, siehe Seite 82
+; Iterative Version, siehe Seite 83
 (DEFUN FIB2 (J)
     (PROG (A B AH K)
           (SETQ A 1) (SETQ B 0)
