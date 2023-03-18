@@ -67,6 +67,13 @@
 (CHECK (FIB1 10) 55)
 (CHECK (FIB2 10) 55)
 
+; Groesster gemeinsamer Teiler
+(TERPRI)
+(CHECK (LOAD "gcd.lsp") T)
+(CHECK (GCD 27 6) 3)
+(CHECK (GCD1 27 6) 3)
+(CHECK (GCD2 27 6) 3)
+
 ; Umkehrung einer Liste
 (TERPRI)
 (CHECK (LOAD "rev.lsp")      T)
