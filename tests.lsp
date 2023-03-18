@@ -59,6 +59,7 @@
 (CHECK (LOAD "fac.lsp") T)
 (CHECK (FACTORIAL 7) 5040)
 (CHECK (FAC2      7) 5040)
+(CHECK (FAK       7) 5040)
 
 ; Fibonacci-Folge
 (TERPRI)
