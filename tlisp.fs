@@ -1,8 +1,8 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.6 ref 2019-07-29
+\              Version 0.7 ref 2023-03-18
 \
-\        Written (w) 1987-2019 by Steffen Hieber
+\        Written (w) 1988-2023 by Steffen Hieber
 \
 \        RCS $Id$
 \
@@ -787,7 +787,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : (new-symbol) ( c-addr u -- atom )
 \ ============
-    type-symbol new-literal
+    TUCK PAD SWAP MOVE PAD SWAP 2DUP {upper} type-symbol new-literal
 ;
 
 
@@ -1490,7 +1490,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
                 2DUP >snumber IF
                     NIP NIP new-number
                 ELSE
-                    DROP 2DUP {upper} (new-symbol)
+                    DROP (new-symbol)
                 THEN
                 expr_stack a> count++ expr_stack >a
                 handle-quotes
@@ -1719,7 +1719,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
          e_no_sexpr       OF ." Argument is not a symbolic expression: "
                                                            SWAP prin DROP ENDOF
          e_no_atom        OF ." Argument is not an atom: " SWAP prin DROP ENDOF
-         e_no_literal     OF ." Argument is not a literal."               ENDOF
+         e_no_literal     OF ." Argument is not a literal: "
+                                                           SWAP prin DROP ENDOF
          e_no_number      OF ." Argument is not a number."                ENDOF
          e_no_lexpr       OF ." Not a lambda expression: " SWAP prin DROP ENDOF
          e_not_bound      OF ." Atom is not bound: "       SWAP prin DROP ENDOF
@@ -1747,8 +1748,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.6 ref 2019-07-29"
-    CR ." Copyright (C) 1987-2019 Steffen Hieber"
+    CR ." TinyLISP Version 0.7 ref 2023-03-18"
+    CR ." Copyright (C) 1988-2023 Steffen Hieber"
     CR CR
 ;
 
@@ -1979,8 +1980,41 @@ TRUE  lany lor      \ logical or
 : setq ( argl ali -- sexpr ) OVER car           (set) ;
 
 
+: unpack ( literal -- sexpr )
+    DUP literal? IF
+        (car) CHAR+ COUNT >R R@ 0 DO
+            DUP I + 1 (new-symbol) SWAP
+        LOOP
+        DROP NIL R@ 0 DO CONS LOOP
+        R> DROP
+    ELSE
+        e_no_literal error
+    THEN
+;
+
+
+: pack ( sexpr -- symbol )
+    0 >R
+    BEGIN
+        DUP (list?)
+    WHILE
+        DUP (car) DUP atom? IF
+            (car) CHAR+ COUNT PAD R@ + SWAP DUP R> + >R MOVE
+        ELSE
+            DROP
+        THEN
+        cdr
+    REPEAT
+    DROP R>
+    DUP IF
+        PAD SWAP (new-symbol)
+    THEN
+;
+
+
 \ @CODE
 new-symbol ZEROP      $subr  ' zerop           ret-bool   1 OR new-subr
+new-symbol UNPACK     $subr  ' unpack                     1    new-subr
 new-symbol TIMES      $fsubr ' times           ret-number 2 OR new-subr
 new-symbol TERPRI     $subr  ' terpri                     0    new-subr
 $t                    $subr  ' t                          1    new-subr
@@ -2008,6 +2042,7 @@ new-symbol PRIN1      $subr  ' prin1                      1    new-subr
 new-symbol PRIN       $subr  ' prin                       1    new-subr
 new-symbol PLUS       $fsubr ' plus            ret-number 2 OR new-subr
 new-symbol PAIR       $subr  ' pair                       2    new-subr
+new-symbol PACK       $subr  ' pack                       1    new-subr
 new-symbol OR         $fsubr ' lor             ret-bool   2 OR new-subr
 new-symbol NUMBERP    $subr  ' numberp         ret-bool   1 OR new-subr
 new-symbol NULL       $subr  ' null            ret-bool   1 OR new-subr

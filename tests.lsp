@@ -104,6 +104,15 @@
 (CHECK (MEMBER 'C '(A B C))             T)
 (CHECK (MEMBER 'B '(A (B) C))           NIL)
 
+; Mustererkennung
+(TERPRI)
+(CHECK (LOAD "match.lsp")                                      T)
+(CHECK (SMATCH '(DAS "?" HAUS "*") '(DAS GELBE HAUS IST ALT))  T)
+(CHECK (SMATCH '("*" IST EIN "?") '(DER LOEWE IST KEIN VOGEL)) NIL)
+(CHECK (MATCH '(DAS ?X HAUS *Y) '(DAS GELBE HAUS IST ALT))     T)
+(CHECK X                                                       GELBE)
+(CHECK Y                                                       (IST ALT))
+
 ; T und NIL
 (TERPRI)
 (CHECK (ATOM  T)              T)
@@ -126,9 +135,11 @@
 (CHECK (SPLIT1 1234) (12 . 34))
 
 ; Funktionale Argumente (FUNARG)
+(TERPRI)
 (CHECK (LOAD "sqx.lsp") T)
 
 ; Tracing
+(TERPRI)
 (CHECK (LOAD "trace.lsp") T)
 (CHECK (TRACE SQR FACTORIAL) OK)
 (CHECK (SQR 3) 9)
@@ -136,6 +147,7 @@
 (CHECK (UNTRACE SQR FACTORIAL) NIL)
 
 ; EVALQUOTE
+(TERPRI)
 (CHECK (LOAD "tests.txt" T) T)
 (CHECK (EVALQUOTE PLUS (2 3))   5)
 (CHECK (EVALQUOTE CSET (A B))   B)
