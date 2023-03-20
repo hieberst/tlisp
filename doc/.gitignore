@@ -1,0 +1,13 @@
+*.aux
+*.bak
+*.bbl
+*.blg
+*.gl?
+*.idx
+*.ilg
+*.ind
+*.lo?
+*.nl?
+*.out
+*.pdf
+*.toc

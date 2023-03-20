@@ -1,0 +1,9 @@
+cpm/
+tmp/
+tfload.fs
+lispinit
+*.bak
+*.exe
+*.fi
+F-PC.SES
+GFORTH.HIS
