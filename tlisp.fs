@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.7 ref 2023-03-18
+\              Version 0.7 ref 2023-03-21
 \
 \        Written (w) 1988-2023 by Steffen Hieber
 \
@@ -719,8 +719,8 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 
 : free ( -- flag )
 \ ====
-    CR ." Code: " {unused} U. ." bytes unused, rp_max=" rp_max @ U. bs EMIT
-                                          ." , sp_max=" sp_max @ U. CR
+    CR ." Code: " {unused} U. ." bytes unused, rp_max=" rp_max @ 0 U.R
+                                          ." , sp_max=" sp_max @ 0 U.R CR
     ." Node: "
     freelist @ ?DUP IF length #nodes SWAP - ELSE 0 THEN
     DUP 5 U.R ."  nodes used, " #nodes OVER - 5 U.R ."  / " #nodes 5 U.R
@@ -1006,9 +1006,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
     \ PROG-Parameter mit NIL initialisieren
     \ und der A-Liste voranstellen
     OVER car ?DUP IF
-        DUP length >R
-        R@ 0 DO nil  LOOP nil
-        R> 0 DO cons LOOP
+        nil OVER length 0 DO nil SWAP cons LOOP
         ROT bind
     THEN
     DUP >envlist
@@ -1748,7 +1746,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.7 ref 2023-03-18"
+    CR ." TinyLISP Version 0.7 ref 2023-03-21"
     CR ." Copyright (C) 1988-2023 Steffen Hieber"
     CR CR
 ;
@@ -1981,12 +1979,12 @@ TRUE  lany lor      \ logical or
 
 
 : unpack ( literal -- sexpr )
+\ ======
     DUP literal? IF
-        (car) CHAR+ COUNT >R R@ 0 DO
-            DUP I + 1 (new-symbol) SWAP
-        LOOP
-        DROP NIL R@ 0 DO CONS LOOP
-        R> DROP
+        (car) CHAR+ COUNT 1- 0 nil -ROT SWAP DO
+            OVER I + 1 (new-symbol) SWAP cons
+        -1 +LOOP
+        NIP
     ELSE
         e_no_literal error
     THEN
@@ -1994,6 +1992,7 @@ TRUE  lany lor      \ logical or
 
 
 : pack ( sexpr -- symbol )
+\ ====
     0 >R
     BEGIN
         DUP (list?)
