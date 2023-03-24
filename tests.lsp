@@ -61,6 +61,13 @@
 (CHECK (FAC2      7) 5040)
 (CHECK (FAK       7) 5040)
 
+; Differentiation
+(TERPRI)
+(CHECK (LOAD "diff.lsp") T)
+(CHECK (DIFF '(TIMES (PLUS 3 X) (DIFFERENCE A X)) 'X)
+              (PLUS (TIMES (PLUS 0 1) (DIFFERENCE A X))
+                    (TIMES (PLUS 3 X) (DIFFERENCE 0 1))))
+
 ; Fibonacci-Folge
 (TERPRI)
 (CHECK (LOAD "fib.lsp") T)
