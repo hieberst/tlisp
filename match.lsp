@@ -1,10 +1,20 @@
 ; Mustererkennung
 ; siehe "LISP" von Dieter Mueller, Kapitel 13, Seite 151ff
 
+; Abweichungen zum Buch:
+; 1. Im Buch wird Superquoting verwendet, um Literalatomen zulässige
+;    Drucknamen zu geben. Insbesondere gilt dort:
+;        (EQ 'X '"X")
+;        (EQUAL (UNPACK '"?X") '("?" X))
+;    In TLISP ist ein Literalatom entweder ein Symbol oder eine
+;    Zeichenkette, der Vergleich eines Symbols mit einer Zeichenkette
+;    mit EQ liefert immer NIL, da die Zeiger unterschiedlich sind.
+; 2. MSET liefert laut Buch immer T, obwohl PUTPROP ebenfalls laut Buch
+;    den neu geschriebenen Wert zurückliefert.
+
 ; Einfache (simple) Mustererkennung
 
 (DEFUN SMATCH (PATT OB)
-
     (COND ((AND (NULL PATT) (NULL OB)) T)
           ((OR (NULL PATT) (NULL OB)) NIL)
           ((OR (EQUAL (CAR PATT) '"?") (EQUAL (CAR PATT) (CAR OB)))
