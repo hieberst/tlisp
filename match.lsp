@@ -2,7 +2,7 @@
 ; siehe "LISP" von Dieter Mueller, Kapitel 13, Seite 151ff
 
 ; Abweichungen zum Buch:
-; 1. Im Buch wird Superquoting verwendet, um Literalatomen zulässige
+; 1. Im Buch wird Superquoting verwendet, um Literalatomen zulaessige
 ;    Drucknamen zu geben. Insbesondere gilt dort:
 ;        (EQ 'X '"X")
 ;        (EQUAL (UNPACK '"?X") '("?" X))
@@ -10,7 +10,7 @@
 ;    Zeichenkette, der Vergleich eines Symbols mit einer Zeichenkette
 ;    mit EQ liefert immer NIL, da die Zeiger unterschiedlich sind.
 ; 2. MSET liefert laut Buch immer T, obwohl PUTPROP ebenfalls laut Buch
-;    den neu geschriebenen Wert zurückliefert.
+;    den neu geschriebenen Wert zurueckliefert.
 
 ; Einfache (simple) Mustererkennung
 

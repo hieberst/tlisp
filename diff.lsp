@@ -2,7 +2,7 @@
 ; siehe "LISP" von Dieter Mueller, Seite 22ff
 
 ; Abweichungen zum Buch:
-; 1. Für die Subtraktion wird DIFFERENCE anstelle von MINUS verwendet,
+; 1. Fuer die Subtraktion wird DIFFERENCE anstelle von MINUS verwendet,
 ;    da MINUS in TLISP wie in LISP 1.5 die Negation ist.
 ; 2. In der M-Notation auf Seite 15 wird der Nenner in der
 ;    Quotientenregel falsch berechnet.
