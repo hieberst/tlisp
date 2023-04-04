@@ -22,7 +22,7 @@ gforth -e "warnings off" tlisp.fs -e "driver"
 
 At startup, TLISP loads the file [tlisp.lsp](tlisp.lsp) and enters the REPL.
 
-> **Note**<br/>
+> **Note** \
 > If warnings are enabled, Gforth will complain about entering double-cell
 > integers without using a base-prefix, which is done for compatibility reasons.
 
@@ -49,13 +49,13 @@ value of the CONFIG symbol, see the following table:
 | GC        | Enable/disable garbage collection      | T       |
 | PAUSE     | Enable/disable single step execution   | NIL     |
 
-There are two shortcuts `DEBUG` and `ECHO` predefined in [tlisp.lsp](tlisp.lsp) for the
-corresponding settings.
+There are two shortcuts `DEBUG` and `ECHO` predefined in [tlisp.lsp](tlisp.lsp)
+for the corresponding settings.
 
 ## Evalquote mode
 
-Changing the value of the setting EVALQUOTE to T enters evalquote mode and
-changing it back to NIL leaves evalquote mode:
+Changing the value of the setting `EVALQUOTE` to T enters evalquote mode and
+changing it back to NIL returns to normal mode using eval:
 
 ```
 tlisp> (putprop 'config t 'evalquote)
@@ -69,3 +69,10 @@ NIL
 
 tlisp>
 ```
+
+## Pitfalls
+
+1. The length of a line is limited to 80 characters (`tlen`) for historical
+   reasons. \
+   If a symbol overlaps this boundary, then it is silently separated
+   at this point and two symbols are created.

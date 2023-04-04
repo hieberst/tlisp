@@ -1,6 +1,6 @@
 \                   TinyLISP (TLISP)
 \
-\              Version 0.7 ref 2023-03-21
+\              Version 0.7 ref 2023-04-04
 \
 \        Written (w) 1988-2023 by Steffen Hieber
 \
@@ -303,7 +303,7 @@ DEFER >oblist
         DUP acount 1- SWAP
         ( n1 n2 n3 row array )
         0 OVER acols 1- DO
-            ROT >R 2DUP R> -ROT I -ROT a!
+            ROT I 2OVER a!
         -1 +LOOP
         2DROP
     THEN
@@ -447,6 +447,8 @@ VARIABLE  sp_max                \ Maximale Datenstack-Ausnutzung
 
 : atom? ( sexpr -- flag )     \ liefert TRUE, wenn Atomknoten, sonst FALSE
 \ =====
+  \ WITHIN does not work with unsigned numbers in F83
+  \ (car) mem_char DUP #chars CHARS + WITHIN
     (car) DUP mem_char U>= SWAP mem_char #chars CHARS + U< AND
 ;
 
@@ -1746,7 +1748,7 @@ $config nil $apval     putprop DROP     \ APVAL vor A-Liste auswerten ein/AUS
 : .hello ( -- )          \ Begruessung des Anwenders
 \ ======
     CR
-    CR ." TinyLISP Version 0.7 ref 2023-03-21"
+    CR ." TinyLISP Version 0.7 ref 2023-04-04"
     CR ." Copyright (C) 1988-2023 Steffen Hieber"
     CR CR
 ;
